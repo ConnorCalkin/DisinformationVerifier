@@ -1,9 +1,20 @@
+"""provides functions for harvesting news articles from specified RSS feeds"""
+
+import logging
+import time
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urljoin
+
 import feedparser
 import trafilatura
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta, timezone
-import time
-from urllib.parse import urljoin
+
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 FEEDS = {
     "BBC": "https://feeds.bbci.co.uk/news/world/rss.xml",
@@ -17,52 +28,52 @@ SCRAPE_FREQUENCY = 1
 
 def get_content_body(url):
     """
-    Uses links to scrape the full content of the article, 
-    even if the initial URL is a landing page with a link to the actual article.
+    Uses links to scrape the full content of the article.
     """
-
+    logger.info(f"Fetching content from: {url}")
     downloaded = trafilatura.fetch_url(url)
+
     if not downloaded:
+        logger.warning(f"Failed to download content from {url}")
         return None
 
     if "ir.thomsonreuters.com" in url:
         soup = BeautifulSoup(downloaded, 'html.parser')
-
         container = soup.find("div", class_="full-release-body")
+
         if container:
             link_tag = container.find("a", href=True)
             if link_tag:
                 new_url = urljoin(url, link_tag['href'])
-                print(f"Redirecting from landing page to: {new_url}")
-                # Fetch the actual content from the redirected URL
+                logger.info(f"Redirecting from landing page to: {new_url}")
                 downloaded = trafilatura.fetch_url(new_url)
 
-    return trafilatura.extract(downloaded)
+    content = trafilatura.extract(downloaded)
+    if not content:
+        logger.warning(f"Trafilatura could not extract text from {url}")
+
+    return content
 
 
 def get_recent_content():
     """
-    Harvest news articles from specified RSS feeds, extract their content, and return a list of articles with metadata.
+    Harvest news articles from specified RSS feeds and return metadata.
     """
-
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=SCRAPE_FREQUENCY)
-
     new_articles = []
 
     for source, url in FEEDS.items():
+        logger.info(f"Checking RSS feed: {source}")
         feed = feedparser.parse(url)
 
         for entry in feed.entries:
-            print(f"Processing article: {entry.title}")
-            # feedparser converts dates to a 9-tuple time structure
-            # convert that back to a datetime object for easy comparison
             if hasattr(entry, 'published_parsed'):
                 published_dt = datetime.fromtimestamp(
                     time.mktime(entry.published_parsed), tz=timezone.utc)
 
                 if published_dt > cutoff:
-                    print(f"New article found: {entry.title}")
+                    logger.info(f"New article found: {entry.title}")
                     content = get_content_body(entry.link)
 
                     if content:
@@ -73,10 +84,14 @@ def get_recent_content():
                             "content": content,
                             "timestamp": published_dt.isoformat()
                         })
+                    else:
+                        logger.warning(
+                            f"Skipping article due to empty content: {entry.title}")
+
     return new_articles
 
 
 if __name__ == "__main__":
+    logger.info("Starting news harvest...")
     articles = get_recent_content()
-    print(f"Harvested {len(articles)} new articles.")
-    print(articles)
+    logger.info(f"Harvested {len(articles)} new articles.")
