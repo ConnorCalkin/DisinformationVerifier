@@ -38,11 +38,3 @@ def chunk_text(text: str, chunk_size: int = 100, overlap: int = 10) -> list[str]
     logger.info(f"Created {len(chunks)} chunks")
 
     return chunks
-
-
-if __name__ == "__main__":
-    sample_text = "This is a sample article text that will be chunked into smaller pieces for testing purposes. " * 50
-    chunks = chunk_text(sample_text)
-    print(f"Number of chunks created: {len(chunks)}")
-    for chunk in chunks[:3]:  # print first 3 chunks
-        print(f"Chunk: {chunk}\n")

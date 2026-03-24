@@ -1,8 +1,9 @@
-import chromadb
 import logging
-from chromadb.utils import embedding_functions
 from os import environ
 from dotenv import load_dotenv
+
+import chromadb
+from chromadb.utils import embedding_functions
 
 if not environ.get("OPENAI_API_KEY"):
     load_dotenv()
@@ -17,7 +18,8 @@ def get_chroma_client_local() -> chromadb.Client:
     '''
     try:
         return chromadb.Client()
-    except Exception as e:
+
+    except chromadb.ChromaError as e:
         logger.error(f"Error creating local Chroma client: {e}")
         raise e
 
@@ -32,7 +34,7 @@ def get_chroma_client_http(chroma_host: str, chroma_port: str) -> chromadb.HttpC
             host=chroma_host,
             port=chroma_port
         )
-    except Exception as e:
+    except chromadb.ChromaError as e:
         logger.error(f"Error creating Chroma HTTP client: {e}")
         raise e
 

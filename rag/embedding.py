@@ -2,11 +2,10 @@
 Purpose: Convert text into vectors.
 """
 
-from chromadb.api.types import Documents, Embeddings, EmbeddingFunction
+import os
 import logging
 
 from openai import OpenAI
-import os
 
 logger = logging.getLogger(__name__)
 

@@ -3,10 +3,11 @@ Purpose: Full pipeline for one article.
 """
 
 import hashlib
+import logging
+
 from chunking import chunk_text
 from vector_store import add_chunks
 
-import logging
 
 logger = logging.getLogger(__name__)
 
