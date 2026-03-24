@@ -60,7 +60,7 @@ def test_handle_special_cases_reuters_redirect(monkeypatch):
 
     monkeypatch.setattr("trafilatura.extract", mock_extract)
 
-    result_html = scraper.handle_special_cases(reuters_url, short_html)
+    result_html = scraper.handle_nested_content(reuters_url, short_html)
 
     assert result_html == full_content_html
     assert any(
