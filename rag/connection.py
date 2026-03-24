@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 import chromadb
 from chromadb.utils import embedding_functions
+from chromadb.errors import ChromaError
 
 if not environ.get("OPENAI_API_KEY"):
     load_dotenv()
@@ -19,8 +20,8 @@ def get_chroma_client_local() -> chromadb.Client:
     try:
         return chromadb.Client()
 
-    except chromadb.ChromaError as e:
-        logger.error(f"Error creating local Chroma client: {e}")
+    except ChromaError as e:
+        logger.error("Error creating local Chroma client: %s", e)
         raise e
 
 
@@ -34,8 +35,8 @@ def get_chroma_client_http(chroma_host: str, chroma_port: str) -> chromadb.HttpC
             host=chroma_host,
             port=chroma_port
         )
-    except chromadb.ChromaError as e:
-        logger.error(f"Error creating Chroma HTTP client: {e}")
+    except ChromaError as e:
+        logger.error("Error creating Chroma HTTP client: %s", e)
         raise e
 
 
@@ -55,6 +56,6 @@ def get_article_collection(client: chromadb.Client) -> chromadb.Collection:
             embedding_function=openai_ef
         )
         return collection
-    except Exception as e:
-        logger.error(f"Error creating Chroma collection: {e}")
+    except ChromaError as e:
+        logger.error("Error creating Chroma collection: %s", e)
         raise e

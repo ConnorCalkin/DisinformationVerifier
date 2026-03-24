@@ -7,7 +7,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def retrieve_chunks(collection, query: str, n_results: int = 3, min_dist: float = 0) -> list[tuple[str, dict, float]]:
+def retrieve_chunks(collection,
+                    query: str,
+                    n_results: int = 3,
+                    min_dist: float = 0) -> list[tuple[str, dict, float]]:
     """
     Queries chroma with the document to find relevant chunks.
     returns the chunk text, metadata, and distance for each relevant chunk.
@@ -32,6 +35,6 @@ def retrieve_chunks(collection, query: str, n_results: int = 3, min_dist: float 
         if dist >= min_dist
     ]
 
-    logger.info(f"Retrieved {len(filtered_results)} chunks")
+    logger.info("Retrieved %d chunks", len(filtered_results))
 
     return filtered_results

@@ -19,7 +19,7 @@ def generate_chunks(article_id: str, text: str) -> list[str]:
     chunks = chunk_text(text)
 
     if not chunks:
-        logger.warning(f"No chunks created for article {article_id}")
+        logger.warning("No chunks created for article %s", article_id)
         raise ValueError(f"No chunks created for article {article_id}")
 
     return chunks
@@ -54,7 +54,7 @@ def ingest_article(collection, title: str, url: str, text: str) -> None:
     """
 
     if text.strip() is None or text.strip() == "":
-        logger.warning(f"Invalid article text for URL {url}")
+        logger.warning("Invalid article text for URL %s", url)
         raise ValueError(f"Invalid article text for URL {url}")
 
     article_id = generate_article_id(url)
@@ -62,4 +62,4 @@ def ingest_article(collection, title: str, url: str, text: str) -> None:
     metadata = build_metadata(article_id, title, url)
     add_chunks(collection, chunks, metadata)
 
-    logger.info(f"Ingested article {article_id}")
+    logger.info("Ingested article %s", article_id)

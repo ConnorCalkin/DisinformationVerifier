@@ -17,7 +17,7 @@ def get_openai_client() -> OpenAI:
     try:
         return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     except Exception as e:
-        logger.error(f"Error creating OpenAI client: {e}")
+        logger.error("Error creating OpenAI client: %s", e)
         raise e
 
 

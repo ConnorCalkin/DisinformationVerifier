@@ -35,6 +35,6 @@ def chunk_text(text: str, chunk_size: int = 100, overlap: int = 10) -> list[str]
         start += chunk_size - overlap
         end = start + chunk_size
 
-    logger.info(f"Created {len(chunks)} chunks")
+    logger.info("Created %d chunks", len(chunks))
 
     return chunks

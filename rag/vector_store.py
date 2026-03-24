@@ -31,4 +31,4 @@ def add_chunks(collection, chunks: list[str], metadata: dict):
     )
 
     logger.info(
-        f"Stored {len(chunks)} chunks for article {metadata['article_id']}")
+        "Stored %d chunks for article %s", len(chunks), metadata['article_id'])

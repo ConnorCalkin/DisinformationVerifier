@@ -3,6 +3,8 @@
 '''
 import logging
 
+from chromadb.errors import ChromaError
+
 from connection import get_chroma_client_local, get_article_collection
 from retrieval import retrieve_chunks
 
@@ -41,6 +43,7 @@ def main(event: dict = None, context: dict = None) -> dict:
         - returns the retrieved chunks and their metadata
     '''
     if is_valid_event(event) is False:
+        logger.warning("Invalid event format: %s", event)
         return {
             "statusCode": 400,
             "body": """
@@ -55,8 +58,8 @@ def main(event: dict = None, context: dict = None) -> dict:
     try:
         client = get_chroma_client_local()
         collection = get_article_collection(client)
-    except Exception as e:
-        logger.error(f"Error connecting to Chroma: {e}")
+    except ChromaError as e:
+        logger.error("Error connecting to Chroma: %s", e)
         return {
             "statusCode": 500,
             "body": f"Error connecting to Chroma: {e}"
@@ -75,15 +78,15 @@ def main(event: dict = None, context: dict = None) -> dict:
             retrieve_chunks(collection, query, **params)
             for query in event.get("queries", [])
         ]
-    except Exception as e:
-        logger.error(f"Error retrieving chunks: {e}")
+    except ChromaError as e:
+        logger.error("Error retrieving chunks: %s", e)
         return {
             "statusCode": 500,
             "body": f"Error retrieving chunks: {e}"
         }
 
     logger.info(
-        f"Retrieved chunks for {len(event.get('queries', []))} queries")
+        "Retrieved chunks for %d queries", len(event.get("queries", [])))
     return {
         "statusCode": 200,
         "body": chunks
