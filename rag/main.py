@@ -44,8 +44,14 @@ def main(event: dict = None, context: dict = None) -> dict:
 
     # connect to Chroma and get the article collection
     # TODO: Update this to connect to a remote Chroma instance
-    client = get_chroma_client_local()
-    collection = get_article_collection(client)
+    try:
+        client = get_chroma_client_local()
+        collection = get_article_collection(client)
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": f"Error connecting to Chroma: {e}"
+        }
 
     # add possible params to the retrieval function
     params = {}
@@ -55,10 +61,16 @@ def main(event: dict = None, context: dict = None) -> dict:
         params["min_dist"] = event["min_dist"]
 
     # retrieve chunks for each query in the event
-    chunks = [
-        retrieve_chunks(collection, query, **params)
-        for query in event.get("queries", [])
-    ]
+    try:
+        chunks = [
+            retrieve_chunks(collection, query, **params)
+            for query in event.get("queries", [])
+        ]
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "body": f"Error retrieving chunks: {e}"
+        }
 
     return {
         "statusCode": 200,

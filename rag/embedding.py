@@ -3,9 +3,8 @@ Purpose: Convert text into vectors.
 """
 
 import logging
-import os
-from openai import OpenAI
 from dotenv import load_dotenv
+from connection import get_openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,8 @@ def get_embedding(text: str) -> list[float]:
     Sends the text to OpenAI, which returns the embedding.
     - enables similarity search in vector DB
     """
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    client = get_openai_client()
 
     response = client.embeddings.create(
         model="text-embedding-3-small",
