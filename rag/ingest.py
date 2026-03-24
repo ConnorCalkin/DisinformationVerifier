@@ -11,13 +11,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def is_valid_article_text(text: str) -> None:
-    """
-    Validates the article text.
-    """
-    return text.strip() is not None and text.strip() != ""
-
-
 def generate_chunks(article_id: str, text: str) -> list[str]:
     """
     Takes the full text of an article, loops through it, creating overlapping chunks.
@@ -46,6 +39,8 @@ def build_metadata(article_id: str, title: str, url: str) -> dict:
 def generate_article_id(url: str) -> str:
     """
     Generates a unique article ID based on the URL.
+    This works by hashing the URL using SHA-256, 
+    which produces a fixed-length string that is unique to the input URL.
     """
     url = url.strip().rstrip("/").lower()
     return hashlib.sha256(url.encode()).hexdigest()
@@ -57,7 +52,7 @@ def ingest_article(collection, title: str, url: str, text: str) -> None:
     - prepares data for RAG
     """
 
-    if not is_valid_article_text(text):
+    if text.strip() is None or text.strip() == "":
         logger.warning(f"Invalid article text for URL {url}")
         raise ValueError(f"Invalid article text for URL {url}")
 

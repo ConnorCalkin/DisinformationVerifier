@@ -2,13 +2,24 @@
 Purpose: Convert text into vectors.
 """
 
+from chromadb.api.types import Documents, Embeddings, EmbeddingFunction
 import logging
-from dotenv import load_dotenv
-from connection import get_openai_client
+
+from openai import OpenAI
+import os
 
 logger = logging.getLogger(__name__)
 
-load_dotenv()  # Load environment variables from .env file
+
+def get_openai_client() -> OpenAI:
+    '''
+    Returns an OpenAI client, which can be used to create embeddings.
+    '''
+    try:
+        return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    except Exception as e:
+        logger.error(f"Error creating OpenAI client: {e}")
+        raise e
 
 
 def get_embedding(text: str) -> list[float]:

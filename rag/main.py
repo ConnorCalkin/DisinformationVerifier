@@ -1,8 +1,16 @@
 '''
     Main function for the RAG lambda.
 '''
+import logging
+
 from connection import get_chroma_client_local, get_article_collection
 from retrieval import retrieve_chunks
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 def is_valid_event(event: dict) -> None:
@@ -48,6 +56,7 @@ def main(event: dict = None, context: dict = None) -> dict:
         client = get_chroma_client_local()
         collection = get_article_collection(client)
     except Exception as e:
+        logger.error(f"Error connecting to Chroma: {e}")
         return {
             "statusCode": 500,
             "body": f"Error connecting to Chroma: {e}"
@@ -67,11 +76,14 @@ def main(event: dict = None, context: dict = None) -> dict:
             for query in event.get("queries", [])
         ]
     except Exception as e:
+        logger.error(f"Error retrieving chunks: {e}")
         return {
             "statusCode": 500,
             "body": f"Error retrieving chunks: {e}"
         }
 
+    logger.info(
+        f"Retrieved chunks for {len(event.get('queries', []))} queries")
     return {
         "statusCode": 200,
         "body": chunks

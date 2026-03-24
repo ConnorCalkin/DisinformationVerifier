@@ -1,13 +1,16 @@
 import chromadb
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
-import os
-from openai import OpenAI
 import logging
+from chromadb.utils import embedding_functions
+from os import environ
+from dotenv import load_dotenv
+
+if not environ.get("OPENAI_API_KEY"):
+    load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 
-def get_chroma_client_local():
+def get_chroma_client_local() -> chromadb.Client:
     '''
     Returns a local Chroma client, which can be used to connect to a local 
     Chroma instance.
@@ -19,7 +22,7 @@ def get_chroma_client_local():
         raise e
 
 
-def get_chroma_client_http(chroma_host: str, chroma_port: str):
+def get_chroma_client_http(chroma_host: str, chroma_port: str) -> chromadb.HttpClient:
     '''
     Returns an HTTP client for Chroma, 
     which can be used to connect to a remote Chroma instance.
@@ -34,30 +37,22 @@ def get_chroma_client_http(chroma_host: str, chroma_port: str):
         raise e
 
 
-def get_article_collection(client):
+def get_article_collection(client: chromadb.Client) -> chromadb.Collection:
     '''
     Returns a Chroma collection for storing article chunks.
     If the collection doesn't exist, it will be created.
     '''
     try:
-        return client.get_or_create_collection(
-            name='articles',
-            embedding_function=OpenAIEmbeddingFunction(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                model_name="text-embedding-3-small"
-            )
+        openai_ef = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=environ.get("OPENAI_API_KEY"),
+            model_name="text-embedding-3-small"
         )
+
+        collection = client.get_or_create_collection(
+            name="my_collection",
+            embedding_function=openai_ef
+        )
+        return collection
     except Exception as e:
         logger.error(f"Error creating Chroma collection: {e}")
-        raise e
-
-
-def get_openai_client():
-    '''
-    Returns an OpenAI client, which can be used to create embeddings.
-    '''
-    try:
-        return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    except Exception as e:
-        logger.error(f"Error creating OpenAI client: {e}")
         raise e
