@@ -9,12 +9,8 @@ import feedparser
 import trafilatura
 from bs4 import BeautifulSoup
 
-# --- Logging Configuration ---
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+
+logger = logging.getLogger("extract_content")
 
 FEEDS = {
     "BBC": "https://feeds.bbci.co.uk/news/world/rss.xml",
@@ -92,6 +88,12 @@ def get_recent_content():
 
 
 if __name__ == "__main__":
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(message)s'
+    )
+
     logger.info("Starting news harvest...")
     articles = get_recent_content()
     logger.info(f"Harvested {len(articles)} new articles.")
