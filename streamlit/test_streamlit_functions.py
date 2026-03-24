@@ -6,6 +6,8 @@
 # from streamlit_functions import (get_claims_from_text, query_llm,
 #                                  convert_claims_string_to_list, Claim)
 
+from streamlit_functions import convert_claims_string_to_list
+
 
 # from openai import OpenAI
 
@@ -34,18 +36,18 @@
 #     assert query_llm(prompt, client) == ""
 
 
-# def test_convert_claims_string_to_list():
-#     """Tests that the convert_claims_string_to_list function
-#     correctly converts a claims string into a list of Claim objects."""
+def test_convert_claims_string_to_list():
+    """Tests that the convert_claims_string_to_list function
+    correctly converts a claims string into a list of Claim objects."""
 
-#     claims_string = "|The sky is blue.\n|The grass is green.\n|Water is wet."
+    claims_string = "|The sky is blue.\n|The grass is green.\n|Water is wet."
 
-#     claims_list = convert_claims_string_to_list(claims_string)
+    claims_list = convert_claims_string_to_list(claims_string)
 
-#     assert len(claims_list) == 3
-#     assert claims_list[0].claim_text == "The sky is blue."
-#     assert claims_list[1].claim_text == "The grass is green."
-#     assert claims_list[2].claim_text == "Water is wet."
+    assert len(claims_list) == 3
+    assert claims_list[0].claim_text == "The sky is blue."
+    assert claims_list[1].claim_text == "The grass is green."
+    assert claims_list[2].claim_text == "Water is wet."
 
 
 # def test_get_claims_from_text():
