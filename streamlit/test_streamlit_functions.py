@@ -1,6 +1,9 @@
+"""Test suite for streamlit_functions.py. 
+"""
+
 import os
 from dotenv import load_dotenv
-from streamlit_functions import (get_claims_from_text, query_LLM,
+from streamlit_functions import (get_claims_from_text, query_llm,
                                  convert_claims_string_to_list, Claim)
 
 
@@ -9,26 +12,26 @@ from openai import OpenAI
 load_dotenv()
 
 
-def test_query_LLM_basic_claims():
-    """Tests that the query_LLM function correctly extracts claims from a simple input text."""
+def test_query_llm_basic_claims():
+    """Tests that the query_llm function correctly extracts claims from a simple input text."""
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     prompt = "The sky is blue. The grass is green. Water is wet."
 
-    assert query_LLM(
+    assert query_llm(
         prompt, client) == "|The sky is blue.\n|The grass is green.\n|Water is wet."
 
 
-def test_query_LLM_no_claims():
-    """Tests that the query_LLM function returns an empty
+def test_query_llm_no_claims():
+    """Tests that the query_llm function returns an empty
     string when no claims are present in the input text."""
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     prompt = "I love the sky. The grass is nice. Water is refreshing."
 
-    assert query_LLM(prompt, client) == ""
+    assert query_llm(prompt, client) == ""
 
 
 def test_convert_claims_string_to_list():

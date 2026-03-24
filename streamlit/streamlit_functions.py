@@ -81,7 +81,7 @@ def get_claims_from_text(text_input: str) -> list[Claim]:
 
     client = connect_to_openai()
 
-    claims_string = query_LLM(text_input, client)
+    claims_string = query_llm(text_input, client)
 
     claims_list = convert_claims_string_to_list(claims_string)
 
@@ -108,7 +108,7 @@ def convert_claims_string_to_list(claims_string: str) -> list[Claim]:
     return [Claim(claim_text=claim) for claim in claims_list]
 
 
-def query_LLM(prompt: str, client: OpenAI) -> str:
+def query_llm(prompt: str, client: OpenAI) -> str:
     """
     Queries the LLM for high-level objective claims returned as a 
     newline-separated string for maximum token efficiency.
