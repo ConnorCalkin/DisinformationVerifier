@@ -2,7 +2,7 @@
 This script contain functions and classes that are used in the streamlit app
 """
 
-
+import re
 import logging
 import os
 from openai import OpenAI
@@ -98,9 +98,10 @@ def convert_claims_string_to_list(claims_string: str) -> list[Claim]:
 
     validate_claims_string(claims_string)
 
-    claims_list = claims_string.split("\n")
-    claims_list = [claim.strip("|").strip()
-                   for claim in claims_list if claim.strip()]
+    claims_list = re.split(r'\n|\|', claims_string)
+    
+    claims_list = [claim.strip()
+                   for claim in claims_list if claim.strip()!=""]
 
     logging.info("Successfully converted claims string to list")
 
@@ -146,7 +147,7 @@ def validate_claims_string(claims_string: str) -> None:
             Either the input text contained no verifiable claims, 
             or it is likely token limit is too low for query of this size.""")
 
-    if "|" not in claims_string:
+    if "|" not in claims_string and "\n" not in claims_string:
         raise ValueError(
             """LLM output does not contain expected pipe characters. Check LLM response format is 
             '|Claim 1\\n|Claim 2\\n|Claim 3'""")

@@ -3,10 +3,11 @@
 
 # import os
 # from dotenv import load_dotenv
+import pytest
 # from streamlit_functions import (get_claims_from_text, query_llm,
 #                                  convert_claims_string_to_list, Claim)
 
-from streamlit_functions import convert_claims_string_to_list
+from streamlit_functions import convert_claims_string_to_list, Claim
 
 
 # from openai import OpenAI
@@ -67,3 +68,38 @@ def test_convert_claims_string_to_list():
 #     assert claims_list[0].claim_text == "The sky is blue."
 #     assert claims_list[1].claim_text == "The grass is green."
 #     assert claims_list[2].claim_text == "Water is wet."
+
+def test_convert_claims_string_to_list_empty_string():
+    """Tests that the convert_claims_string_to_list function returns an empty list when given an empty string."""
+
+    claims_string = ""
+
+    with pytest.raises(ValueError):
+        convert_claims_string_to_list(claims_string)
+
+def test_comvert_claims_string_to_list_malformed_string_1():
+    """Tests that the convert_claims_string_to_list function raises a ValueError when given a malformed claims string."""
+
+    claims_string = "The sky is blue.\nThe grass is green.\nWater is wet."
+
+    assert [
+        claim.claim_text for claim in convert_claims_string_to_list(claims_string) 
+    ] == ["The sky is blue.", "The grass is green.", "Water is wet."]
+
+
+def test_comvert_claims_string_to_list_malformed_string_2():
+    """Tests that the convert_claims_string_to_list function raises a ValueError when given a malformed claims string."""
+
+    claims_string = "The sky is blue.  |The grass is green.\n| Water is wet."
+
+    assert [
+        claim.claim_text for claim in convert_claims_string_to_list(claims_string)
+    ] == ["The sky is blue.", "The grass is green.", "Water is wet."]
+
+def test_comvert_claims_string_to_list_malformed_string_3():
+    """Tests that the convert_claims_string_to_list function raises a ValueError when given a malformed claims string."""
+
+    claims_string = "The sky is blue.  The grass is green. Water is wet."
+
+    with pytest.raises(ValueError):
+        convert_claims_string_to_list(claims_string)
