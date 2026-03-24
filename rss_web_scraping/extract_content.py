@@ -1,4 +1,4 @@
-"""provides functions for harvesting news articles from specified RSS feeds"""
+"""provides functions for scraping news articles from specified RSS feeds"""
 
 import logging
 import time
@@ -10,90 +10,161 @@ import trafilatura
 from bs4 import BeautifulSoup
 
 
-logger = logging.getLogger("extract_content")
+logger = logging.getLogger("NewsScraper")
 
+# Each RSS feed to search for new srticles:
 FEEDS = {
     "BBC": "https://feeds.bbci.co.uk/news/world/rss.xml",
     "Reuters": "https://ir.thomsonreuters.com/rss/news-releases.xml?items=100",
     "FullFact": "https://fullfact.org/feed/"
 }
 
-# How far to look back at articles in hours.
-SCRAPE_FREQUENCY = 1
+
+# How far to look back at articles in hours:
+SCRAPE_FREQUENCY = 3
 
 
-def get_content_body(url):
+def fetch_raw_html(url: str) -> str:
     """
-    Uses links to scrape the full content of the article.
+    Downloads HTML and handles network-level errors.
     """
-    logger.info(f"Fetching content from: {url}")
+
     downloaded = trafilatura.fetch_url(url)
-
     if not downloaded:
-        logger.warning(f"Failed to download content from {url}")
-        return None
+        logger.error("Failed to download content from: %s", url)
+        raise ConnectionError(f"Could not reach {url}")
+    return downloaded
+
+
+def handle_special_cases(url: str, html: str) -> str:
+    """
+    Abstracts site-specific logic. Redirects if content is missing 
+    or suspiciously short (under 300 characters).
+    """
 
     if "ir.thomsonreuters.com" in url:
-        soup = BeautifulSoup(downloaded, 'html.parser')
-        container = soup.find("div", class_="full-release-body")
+        current_content = trafilatura.extract(html)
+        content_len = len(current_content) if current_content else 0
 
-        if container:
-            link_tag = container.find("a", href=True)
-            if link_tag:
-                new_url = urljoin(url, link_tag['href'])
-                logger.info(f"Redirecting from landing page to: {new_url}")
-                downloaded = trafilatura.fetch_url(new_url)
+        # If content is non-existent or too short, look for link to article.
+        if content_len < 200:
+            logger.info(
+                "Content too short (%s chars). Searching for redirect link...", content_len)
 
-    content = trafilatura.extract(downloaded)
-    if not content:
-        logger.warning(f"Trafilatura could not extract text from {url}")
+            soup = BeautifulSoup(html, 'html.parser')
+            container = soup.find("div", class_="full-release-body")
+
+            if container:
+                link_tag = container.find("a", href=True)
+                if link_tag:
+                    new_url = urljoin(url, link_tag['href'])
+                    # Avoid infinite loops by ensuring we aren't redirecting to the same URL
+                    if new_url != url:
+                        logger.info(
+                            "Redirecting Reuters to full article: %s", new_url)
+                        return fetch_raw_html(new_url)
+
+        logger.debug("Reuters page met length requirements or no link found.")
+
+    return html
+
+
+def get_content_body(url: str) -> str:
+    """
+    Orchestrates the download, special case handling, and extraction.
+    """
+
+    logger.info("Fetching content from: %s", url)
+
+    raw_html = fetch_raw_html(url)
+
+    final_html = handle_special_cases(url, raw_html)
+
+    try:
+        content = trafilatura.extract(final_html)
+    except Exception as e:
+        logger.warning("Failed to extract content from %s: %s", url, str(e))
+        return ""
 
     return content
 
 
-def get_recent_content():
+def is_recent_article(entry, cutoff_hours: int) -> bool:
     """
-    Harvest news articles from specified RSS feeds and return metadata.
+    Checks if the article is recent enough to be scraped.
     """
-    now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(hours=SCRAPE_FREQUENCY)
+
+    if not hasattr(entry, 'published_parsed'):
+        logger.warning("Entry missing 'published_parsed': %s",
+                       getattr(entry, 'title', 'No Title'))
+        return False
+
+    published_dt = datetime.fromtimestamp(
+        time.mktime(entry.published_parsed), tz=timezone.utc
+    )
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=cutoff_hours)
+    return published_dt > cutoff
+
+
+def transform_entry(source: str, entry) -> dict:
+    """
+    Converts RSS entry to a consistent dict format, including content extraction.
+    """
+
+    content = get_content_body(entry.link)
+    if not content:
+        return {}
+
+    return {
+        "source": source,
+        "title": getattr(entry, 'title', 'No Title'),
+        "url": entry.link,
+        "content": content,
+        "timestamp": datetime.fromtimestamp(
+            time.mktime(entry.published_parsed), tz=timezone.utc
+        ).isoformat()
+    }
+
+
+def get_recent_content(feeds: dict, hours: int) -> list[dict]:
+    """
+    Coordinates RSS scraping process.
+    """
+
     new_articles = []
 
-    for source, url in FEEDS.items():
+    for source, url in feeds.items():
         logger.info(f"Checking RSS feed: {source}")
         feed = feedparser.parse(url)
 
         for entry in feed.entries:
-            if hasattr(entry, 'published_parsed'):
-                published_dt = datetime.fromtimestamp(
-                    time.mktime(entry.published_parsed), tz=timezone.utc)
-
-                if published_dt > cutoff:
-                    logger.info(f"New article found: {entry.title}")
-                    content = get_content_body(entry.link)
-
-                    if content:
-                        new_articles.append({
-                            "source": source,
-                            "title": entry.title,
-                            "url": entry.link,
-                            "content": content,
-                            "timestamp": published_dt.isoformat()
-                        })
-                    else:
-                        logger.warning(
-                            f"Skipping article due to empty content: {entry.title}")
+            if is_recent_article(entry, hours):
+                article = transform_entry(source, entry)
+                # Only add if content extraction was successful
+                if article:
+                    new_articles.append(article)
+                    logger.info(f"Scraped: {article['title']}")
 
     return new_articles
 
 
-if __name__ == "__main__":
+def setup_logging():
+    """
+    Configures logging for the Lambda function. Logs will be sent to CloudWatch.
+    """
 
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(message)s'
+        format='%(asctime)s - %(levelname)s - %(message)s'
     )
 
-    logger.info("Starting news harvest...")
-    articles = get_recent_content()
-    logger.info(f"Harvested {len(articles)} new articles.")
+
+def run():
+    """
+    Main function to execute the RSS scraping process. 
+    """
+
+    setup_logging()
+    logger.info("Starting RSS scrape...")
+    articles = get_recent_content(FEEDS, SCRAPE_FREQUENCY)
+    logger.info(f"Scraped {len(articles)} new articles.")
