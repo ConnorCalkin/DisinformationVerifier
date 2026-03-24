@@ -6,7 +6,6 @@ This script contain functions and classes that are used in the streamlit app
 import logging
 import os
 from openai import OpenAI
-
 from dotenv import load_dotenv
 
 load_dotenv()
