@@ -36,37 +36,42 @@ def fetch_raw_html(url: str) -> str:
     return downloaded
 
 
-def handle_special_cases(url: str, html: str) -> str:
+def handle_nested_content(url: str, html: str) -> str:
     """
     Abstracts site-specific logic. Redirects if content is missing 
     or suspiciously short (under 300 characters).
     """
 
-    if "ir.thomsonreuters.com" in url:
-        current_content = trafilatura.extract(html)
-        content_len = len(current_content) if current_content else 0
+    if "ir.thomsonreuters.com" not in url:
+        return html
 
-        # If content is non-existent or too short, look for link to article.
-        if content_len < 200:
-            logger.info(
-                "Content too short (%s chars). Searching for redirect link...", content_len)
+    current_content = trafilatura.extract(html)
+    content_len = len(current_content) if current_content else 0
 
-            soup = BeautifulSoup(html, 'html.parser')
-            container = soup.find("div", class_="full-release-body")
+    # If enough content is present, return as is.
+    if content_len >= 200:
+        return html
 
-            if container:
-                link_tag = container.find("a", href=True)
-                if link_tag:
-                    new_url = urljoin(url, link_tag['href'])
-                    # Avoid infinite loops by ensuring we aren't redirecting to the same URL
-                    if new_url != url:
-                        logger.info(
-                            "Redirecting Reuters to full article: %s", new_url)
-                        return fetch_raw_html(new_url)
+    logger.info(
+        "Content too short (%s chars). Searching for redirect link...", content_len)
 
-        logger.debug("Reuters page met length requirements or no link found.")
+    soup = BeautifulSoup(html, 'html.parser')
 
-    return html
+    container = soup.find("div", class_="full-release-body")
+    if not container:
+        return html
+
+    link_tag = container.find("a", href=True)
+    if not link_tag:
+        return html
+
+    # Avoid infinite loops by ensuring we aren't redirecting to the same URL
+    new_url = urljoin(url, link_tag['href'])
+    if new_url == url:
+        return html
+
+    logger.debug("Reuters page met length requirements or no link found.")
+    return fetch_raw_html(new_url)
 
 
 def get_content_body(url: str) -> str:
@@ -78,7 +83,7 @@ def get_content_body(url: str) -> str:
 
     raw_html = fetch_raw_html(url)
 
-    final_html = handle_special_cases(url, raw_html)
+    final_html = handle_nested_content(url, raw_html)
 
     try:
         content = trafilatura.extract(final_html)
