@@ -21,7 +21,7 @@ def add_chunks_to_rds(conn,
                     title,
                     source_url,
                     content,
-                    created_at,
+                    published_at,
                     embedding
                 )
                 VALUES (%s, %s, %s, %s, %s)
@@ -30,7 +30,7 @@ def add_chunks_to_rds(conn,
                     metadata['title'],
                     metadata['source_url'],
                     chunk,
-                    metadata['created_at'],
+                    metadata['published_at'],
                     embedding_data
                 )
             )

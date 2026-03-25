@@ -132,9 +132,9 @@ def transform_entry(source: str, entry) -> dict:
     return {
         "source": source,
         "title": getattr(entry, 'title', 'No Title'),
-        "url": entry.link,
+        "source_url": entry.link,
         "content": content,
-        "timestamp": datetime.fromtimestamp(
+        "published_at": datetime.fromtimestamp(
             time.mktime(entry.published_parsed), tz=timezone.utc
         ).isoformat()
     }
@@ -193,3 +193,4 @@ def run():
     logger.info("Starting RSS scrape...")
     articles = get_recent_content(FEEDS, SCRAPE_FREQUENCY)
     logger.info(f"Scraped {len(articles)} new articles.")
+    return articles

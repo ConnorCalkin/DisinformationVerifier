@@ -10,7 +10,7 @@ resource "aws_lambda_function" "wiki_ner_lambda" {
 
     environment {
         variables = {
-            SECRET_ID = aws_secretsmanager_secret.openai_key.name
+            SECRET_ID = aws_secretsmanager_secret.credentials.name
         }
     }
 }
@@ -48,7 +48,7 @@ resource "aws_iam_role_policy" "lambda_secrets_read" {
                 Action = [
                     "secretsmanager:GetSecretValue"
                 ],
-                Resource = aws_secretsmanager_secret.openai_key.arn
+                Resource = aws_secretsmanager_secret.credentials.arn
             }
         ]
     })

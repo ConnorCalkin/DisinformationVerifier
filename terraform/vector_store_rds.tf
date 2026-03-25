@@ -1,3 +1,7 @@
+data "aws_secretsmanager_secret_version" "db_password" {
+  secret_id = aws_secretsmanager_secret.credentials.id
+}
+
 resource "aws_security_group" "rds_sg" {
   name   = "c22-dv-postgres-sg"
   vpc_id = var.vpc_id 
@@ -31,7 +35,7 @@ resource "aws_db_instance" "rds_instance" {
   engine_version         = "13"
   instance_class         = "db.t3.micro"
   username               = var.db_username
-  password               = var.db_password
+  password               = jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["RDS_PASSWORD"]
   parameter_group_name   = "default.postgres13"
   skip_final_snapshot    = true
   
