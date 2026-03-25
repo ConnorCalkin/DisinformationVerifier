@@ -38,10 +38,14 @@ def fetch_raw_html(url: str) -> str:
 
 def handle_nested_content(url: str, html: str) -> str:
     """
-    Abstracts site-specific logic. Redirects if content is missing 
-    or suspiciously short (under 300 characters).
+    Evaluates page content for site-specific 'thin' pages and resolves redirects.
+
+    If the content (e.g., Reuters Investor Relations) is under 200 characters, 
+    this attempts to locate and fetch the full article from a nested link 
+    to prevent indexing empty summary pages.
     """
 
+    # Only reuters pages have this potential issue.
     if "ir.thomsonreuters.com" not in url:
         return html
 
@@ -55,8 +59,8 @@ def handle_nested_content(url: str, html: str) -> str:
     logger.info(
         "Content too short (%s chars). Searching for redirect link...", content_len)
 
+    # Extraction: Parse DOM to find the 'Full Release' link container, using BeautifulSoup.
     soup = BeautifulSoup(html, 'html.parser')
-
     container = soup.find("div", class_="full-release-body")
     if not container:
         return html
