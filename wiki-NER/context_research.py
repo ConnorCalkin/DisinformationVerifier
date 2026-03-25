@@ -1,13 +1,13 @@
 import json
-import boto3
 import logging
 from os import environ
+import boto3
 import wikipedia
 import wikipediaapi
 from openai import OpenAI
 
 
-sm_client = boto3.client('secretsmanager', region_name='eu-west-2')  # Ensure this matches your Secrets Manager region
+sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
 wiki_api = wikipediaapi.Wikipedia(user_agent="DisinformationVerifier/1.0", language='en')
 
 _CACHED_SECRET = None
@@ -20,7 +20,7 @@ def setup_logging():
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
 
-def get_secrets():
+def get_secrets() -> dict:
     """Fetches OpenAI API key from AWS Secrets Manager."""
     global _CACHED_SECRET
     if _CACHED_SECRET:
@@ -41,7 +41,7 @@ def get_secrets():
         raise EnvironmentError("Failed to retrieve secrets from AWS Secrets Manager.")
 
 
-def get_openai_client():
+def get_openai_client() -> OpenAI:
     """ Abstracted function to intialise and cache the OpenAI client. """
     global _OPENAI_CLIENT
     if _OPENAI_CLIENT:
@@ -49,15 +49,37 @@ def get_openai_client():
     try:
         secrets = get_secrets()
         api_key = secrets.get('OPENAI_API_KEY')
+
         if not api_key:
             logging.error("OPENAI_API_KEY not found in secrets.")
             raise KeyError("OPENAI_API_KEY not found in secrets.")
+        
         _OPENAI_CLIENT = OpenAI(api_key=api_key)
         logging.info("OpenAI client initialized and cached.")
         return _OPENAI_CLIENT
     except Exception as e:
         logging.error(f"Error initializing OpenAI client: {e}")
         raise RuntimeError("Failed to initialize OpenAI client.")
+    
+
+def _call_llm_for_terms(openai_client: OpenAI, prompt: str) -> list[str]:
+    """ Phase 1: API Interaction - Only for networking calls to the LLM. """
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}
+    )
+    return response.choices[0].message.content
+
+
+def _parse_llm_response(raw_content: str) -> list[str]:
+    """ Phase 2: Response Handling - Only for parsing and validating the LLM's output. """
+    try:
+        data = json.loads(raw_content)
+        return list(set(data.get("search_terms", [])))  # Ensure uniqueness
+    except (json.JSONDecodeError, TypeError) as e:
+        logging.error(f"Error parsing LLM response: {e}, Raw content: {raw_content}")
+        return []
     
 
 def extract_wiki_terms_from_claims(claims: list[str]) -> list[str]:
@@ -76,18 +98,10 @@ def extract_wiki_terms_from_claims(claims: list[str]) -> list[str]:
     
     # Call OpenAI API with the prompt and return the list of article titles
     try:
-        response = openai_client.chat.completions.create(
-            model="gpt-5-nano",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}
-        )
-        content_dict = json.loads(response.choices[0].message.content)
-        terms = list(set(content_dict.get("search_terms", [])))  # Ensure uniqueness
-        logging.info(f"Extracted Wikipedia search terms: {terms}")
-        return terms
-    
+        raw_content = _call_llm_for_terms(openai_client, prompt)
+        return _parse_llm_response(raw_content)
     except Exception as e:
-        logging.error(f"Error during LLM article extraction: {e}")
+        logging.error(f"LLM extraction error: {e}")
         return []
     
 
@@ -103,6 +117,22 @@ def resolve_wiki_titles(query_terms: list[str]) -> list[str]:
     
     return list(set(valid_titles))  # Ensure uniqueness
 
+def _extract_relevant_sections(sections: list[wikipediaapi.WikipediaPageSection], keywords: list[str]) -> str:
+    """ Helper function to scan Wikipedia sections for relevance based on claim keywords. """
+    smart_content = ""
+    for section in sections:
+        if any(word in section.title.lower() or word in section.text.lower() for word in keywords):
+            smart_content += f"SECTION: [{section.title} : {section.text}]\n\n"
+    return smart_content
+
+def _format_article_response(title: str, url: str, summary: str, relevant_sections: str) -> dict:
+    """ Helper function to structure the Wikipedia article data in a consistent format. """
+    return {
+        "title": title,
+        "url": url,
+        "summary": summary,
+        "relevant_sections": relevant_sections
+    }
 
 def fetch_article_body(title: str, claims: list[str]) -> dict:
     """ Retrieves structured context by prioritising the summary and relevant sections of the Wikipedia article. """
@@ -111,41 +141,43 @@ def fetch_article_body(title: str, claims: list[str]) -> dict:
     
     if not page.exists():
         logging.warning(f"Article not found: {title}")
-        return None
-    
-    smart_content = f"SUMMARY: {page.summary}\n\n"
+        return {}
 
     # Scan sections for keywords from the claims to find relevant context
     keywords = " ".join(claims).lower().split() # Flattens claims into a list of keywords
+    relevant_sections = _extract_relevant_sections(page.sections, keywords)
 
-    for section in page.sections:
-        if any(word in section.title.lower() or word in section.text.lower() for word in keywords):
-            smart_content += f"SECTION: [{section.title} : {section.text}]\n\n"
+    return _format_article_response(
+        title=title,
+        url=page.fullurl,
+        summary=page.summary,
+        relevant_sections=relevant_sections
+    )
 
-    return {
-        "title": title,
-        "url": page.fullurl,
-        "summary": page.summary,
-        "relevant_sections": smart_content
-    }
-
+setup_logging()  # Initialize logging configuration at the start of the Lambda execution
 
 def lambda_handler(event, context):
     """ Coordinates the flow from Claim Input -> Search Terms -> Wiki Data Retrieval. """
     
-    logging.info(f"Processing event: {json.dumps(event)}")
+    logging.info(f"Lambda execution started", extra={"event": event})
 
     try:
         # Step 1: Parse input from previous pipeline step ie the list of claims
         claims = event.get("claims", [])
         if not claims:
-            logging.warning("No claims provided in the event.")
+            logging.warning("Validation Failed: 'claims' key is missing or empty in the event.")
             return {
                 "statusCode": 400,
                 "body": json.dumps({"error": "No claims provided in the event."})
             }
         # Step 2: Extract relevant Wikipedia article titles using LLM
         search_queries = extract_wiki_terms_from_claims(claims)
+        if not search_queries:
+            logging.warning("LLM did not return any search terms. Skipping Wikipedia retrieval.")
+            return {
+                "statusCode": 200,
+                "body": json.dumps({"wiki_context": [], "message": "No relevant search terms found."})  # Return empty context if no search terms found
+            }
         # Step 3: Resolve those titles to actual Wikipedia articles
         valid_titles = resolve_wiki_titles(search_queries)
         # Step 4: Fetch the content of each valid Wikipedia article
@@ -158,10 +190,10 @@ def lambda_handler(event, context):
         logging.info(f"Retrieved Wikipedia context: {wiki_evidence}")
         return {
             "statusCode" : 200,
-            "wiki_context" : wiki_evidence
+            "body": json.dumps({"wiki_context": wiki_evidence})
         }
     except Exception as e:
-        logging.critical(f"Pipeline Failure: {e}", exc_info=True)
+        logging.critical(f"Top-Level Pipeline Failure: {e}", exc_info=True)
         return {
             "statusCode": 500,
             "body": json.dumps({"error": "Internal research engine error."})
