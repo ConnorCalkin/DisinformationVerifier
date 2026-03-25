@@ -206,6 +206,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+<<<<<<< wiki-NER-lambda
 # Terraform state files
 .terraform/
 terraform.tfstate
@@ -214,3 +215,8 @@ terraform.tfstate.backup
 *.tfvars.json
 *.tfstate
 *.tfstate.*
+=======
+#terraform
+*.tfstate
+*.terraform*
+>>>>>>> main
