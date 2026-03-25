@@ -2,7 +2,7 @@ import os
 import logging
 import psycopg2
 from psycopg2.extensions import connection
-from psycopg2.errors import ConnectionFailure
+from psycopg2.errors import OperationalError
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,6 @@ def get_db_connection() -> connection:
             password=os.environ.get("RDS_PASSWORD")
         )
         return conn
-    except ConnectionFailure as e:
+    except OperationalError as e:
         logger.error("Error connecting to RDS: %s", e)
         raise e

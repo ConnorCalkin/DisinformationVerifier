@@ -3,7 +3,9 @@ from psycopg2.extras import DictCursor
 from embedding import get_embedding
 
 
-def retrieve_relevant_chunks(connection: connection, query: str, top_k: int = 5) -> list[dict]:
+def retrieve_relevant_chunks(connection: connection,
+                             query: str,
+                             top_k: int = 5) -> list[dict]:
     """
     Retrieves the most relevant chunks for a given query.
     """
