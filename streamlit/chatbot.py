@@ -7,10 +7,8 @@ When a user inputs an article, url or claim. This script will extract claims fro
 These claims are then sent to multiple lambda functions via lambda urls.
 """
 
-import streamlit as st
-import requests
 import plotly.graph_objects as go
-
+import streamlit as st
 
 # TODO: import function that retrieves claims from a text body.
 
@@ -36,15 +34,21 @@ def display_claim_and_rating(claim: dict, box_design) -> None:
         st.markdown(f"**Evidence:** {claim['evidence']}")
 
 
-def set_up_initial_inputs() -> tuple[str, str, str, str]:
-    "Set up input fields for user to enter an article, url or claim."
+def render_and_parse_input_boxes() -> tuple[str, str, str, str]:
+    """
+    Set up input fields for user to enter an article, url or claim.
+
+    Will also render input fields for input format and source type
+
+    """
 
     main_input, secondary_input = st.columns([5, 3.5])
 
     with main_input:
         user_input = st.text_area(
             label='Input an article, URL, or claim to verify:',
-            placeholder='"https://www.bbc.co.uk/news/science-environment-56837908"\n\n"The Earth is flat."',
+            placeholder="""'https://www.bbc.co.uk/news/science-environment-56837908"
+            "The Earth is flat.'""",
             height=150,
             key='user_input'
         )
@@ -67,12 +71,12 @@ def set_up_initial_inputs() -> tuple[str, str, str, str]:
                 key='source_type'
             )
 
-        source = set_up_follow_up_inputs(source_type)
+        source = render_and_parse_optional_input_box(source_type)
 
     return user_input, input_format, source_type, source
 
 
-def set_up_follow_up_inputs(source_type):
+def render_and_parse_optional_input_box(source_type) -> str:
     """Set up follow up input fields based on the source type selected by the user."""
 
     if source_type == 'News Article':
@@ -100,7 +104,8 @@ def set_up_follow_up_inputs(source_type):
 
 
 def add_grey_background(y_positions: list[str]) -> go.Figure:
-    """Creates a grey background for each metric bar"""
+    """Creates a grey background for each metric bar
+    representing the full range."""
 
     fig = go.Figure(go.Bar(
         x=[1] * 4,
@@ -108,7 +113,7 @@ def add_grey_background(y_positions: list[str]) -> go.Figure:
         orientation='h',
         marker=dict(
             color='rgb(242,242,242)',  # Transparent fill
-            line=dict(color='white', width=1)  # The thin black border
+            line={"color": 'white', "width": 1}  # invisible border
         ),
         width=0.5,
         hoverinfo='none'  # Keep the background quiet
@@ -117,7 +122,7 @@ def add_grey_background(y_positions: list[str]) -> go.Figure:
     return fig
 
 
-def add_metric_bars(fig: go.Figure, values: list[float], y_positions: list[str]) -> None:
+def add_metric_bars(fig: go.Figure, values: list[float], y_positions: list[str]) -> go.Figure:
     """Adds colored bars corresponding to the value (0-1) on top of the grey background."""
 
     colorscale = [[0, "#FF4B4B"], [0.5, "#FFA421"], [1, "#28A745"]]
@@ -131,7 +136,7 @@ def add_metric_bars(fig: go.Figure, values: list[float], y_positions: list[str])
             colorscale=colorscale,
             cmin=0,
             cmax=1,
-            line=dict(width=0)
+            line={"width": 0}
         ),
         width=0.5
     ))
@@ -139,15 +144,15 @@ def add_metric_bars(fig: go.Figure, values: list[float], y_positions: list[str])
     return fig
 
 
-def update_figure_layout(fig: go.Figure) -> None:
+def update_figure_layout(fig: go.Figure) -> go.Figure:
     """Updates the layout of the figure to ensure bars are overlaid and axes are hidden."""
 
     fig.update_layout(
         barmode='overlay',  # Crucial: prevents bars from stacking or dodging
-        xaxis=dict(range=[0, 1], visible=False),
-        yaxis=dict(visible=False),
+        xaxis={"range": [0, 1], "visible": False},
+        yaxis={"visible": False},
         height=100,
-        margin=dict(l=0, r=0, t=0, b=0),
+        margin={"l": 0, "r": 0, "t": 0, "b": 0},
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         showlegend=False,
@@ -157,7 +162,7 @@ def update_figure_layout(fig: go.Figure) -> None:
     return fig
 
 
-def show_metric_bars(values: list[float]):
+def render_metric_bars(values: list[float]):
     """Displays horizontal bars with colors corresponding to the value (0-1)."""
 
     y_positions = ["A", "B", "C", "D"]
@@ -171,7 +176,7 @@ def show_metric_bars(values: list[float]):
     st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
 
 
-def display_claims(claims: list[dict]) -> None:
+def render_claims(claims: list[dict]) -> None:
     """Display claims and their ratings in the Streamlit app."""
 
     box_designs = {  # Different colour boxes for different ratings.
@@ -187,7 +192,7 @@ def display_claims(claims: list[dict]) -> None:
             display_claim_and_rating(claim, box_design)
 
 
-def get_user_input_claims(user_input: str, format: str) -> list[dict]:
+def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict]:
     """
     Take user input and return claims and their ratings.
     pipeline will be different depending on the input format
@@ -195,8 +200,6 @@ def get_user_input_claims(user_input: str, format: str) -> list[dict]:
     """
 
     if user_input.strip() != "":
-
-        placeholder.empty()
 
         # TODO: Return list of claims using lambdas, will depend on 'format'.
 
@@ -223,12 +226,13 @@ def get_user_input_claims(user_input: str, format: str) -> list[dict]:
                 consistently indicate that the Earth is around 4.5 billion years old."""
             }
         ]
-        claims = [] # Placeholder to test the 'no claims extracted' warning message.
+        # Placeholder to test the 'no claims extracted' warning message.
+        claims = []
 
         return claims
 
 
-def click_button(user_input: str, format: str) -> list[dict]:
+def verify_button(user_input: str, format: str) -> list[dict] | None:
     """Handle button click event and return claims with ratings."""
 
     button_clicked = st.button('Verify!')
@@ -237,21 +241,20 @@ def click_button(user_input: str, format: str) -> list[dict]:
         st.warning("Please enter an article, URL, or claim to verify.")
         return None
 
-    elif button_clicked:
-        return get_user_input_claims(user_input, format)
+    if button_clicked:
+        return get_claims_and_ratings_from_input(user_input, format)
 
-    else:
-        return None
+    return None
 
 
-def display_input_metrics(claims_and_rating: list[dict]) -> None:
+def render_trust_metrics(claims_and_rating: list[dict]) -> None:
     """Display bar metrics about the user input. These include:
     -Trustworthiness
     -Correctness
     -Overall
     -Confidence"""
 
-    trust, correctness, overall, confidence = create_metrics(claims_and_rating)
+    trust, correctness, overall, confidence = calculate_metrics(claims_and_rating)
 
     fields_col, values_col = st.columns([1, 3])
 
@@ -269,13 +272,13 @@ def display_input_metrics(claims_and_rating: list[dict]) -> None:
         )
 
     with values_col:
-        show_metric_bars([trust,
+        render_metric_bars([trust,
                           correctness,
                           overall,
                           confidence])
 
 
-def create_metrics(claims_and_rating: list[dict]) -> tuple[float, float, float, float]:
+def calculate_metrics(claims_and_rating: list[dict]) -> tuple[float, float, float, float]:
     """Create metrics about the user input based on the claims and their ratings."""
 
     # TODO: Create function to calculate metrics based on claims and their ratings.
@@ -283,14 +286,14 @@ def create_metrics(claims_and_rating: list[dict]) -> tuple[float, float, float, 
     return 0.1, 0.5, 0.75, 0.9  # Placeholder values for testing purposes
 
 
-def render_input_screen(screen_placeholder) -> None:
+def render_input_screen(screen_placeholder) -> list[dict]:
     """Render the initial input screen for the user to enter an article, URL or claim."""
 
     with screen_placeholder.container(border=True):
 
-        user_input, format, source_type, source = set_up_initial_inputs()
+        user_input, format, _, _ = render_and_parse_input_boxes()
 
-        claims_and_ratings = click_button(user_input, format)
+        claims_and_ratings = verify_button(user_input, format)
 
         # TODO: Add a function to store claims, ratings, source_type and source in a database for future analysis.
 
@@ -308,13 +311,10 @@ def render_results_screen(claims_and_ratings: list[dict], screen_placeholder) ->
         return
 
     with st.container(border=True):
-        display_input_metrics(claims_and_ratings)
+        render_trust_metrics(claims_and_ratings)
 
     with st.container(border=True, height=300):
-        display_claims(claims_and_ratings)
-
-    if st.button('Verify another claim?'):
-        st.rerun()
+        render_claims(claims_and_ratings)
 
 
 if __name__ == "__main__":
@@ -325,3 +325,6 @@ if __name__ == "__main__":
 
     if claims_and_ratings is not None:
         render_results_screen(claims_and_ratings, placeholder)
+
+        if st.button('Verify another claim?'):
+            st.rerun()
