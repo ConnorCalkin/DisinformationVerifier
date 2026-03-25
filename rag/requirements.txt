@@ -1,5 +1,4 @@
 requests
 openai
-pytest
-chromadb
 python-dotenv
+chromadb
