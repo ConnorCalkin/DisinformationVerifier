@@ -1,3 +1,5 @@
+# pylint: skip-file
+
 import pytest
 import time
 from datetime import datetime, timezone, timedelta
