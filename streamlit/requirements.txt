@@ -1,3 +1,6 @@
 
 plotly
 streamlit
+openai 
+python-dotenv 
+pytest
