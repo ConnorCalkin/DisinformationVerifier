@@ -131,24 +131,35 @@ def transform_entry(source: str, entry) -> dict:
     }
 
 
+def process_feed_entries(source: str, url: str, hours: int):
+    """
+    Generator that yields valid, recent articles from a single feed.
+    """
+
+    feed = feedparser.parse(url)
+
+    for entry in feed.entries:
+        if not is_recent_article(entry, hours):
+            continue
+
+        article = transform_entry(source, entry)
+        if article:
+            yield article
+
+
 def get_recent_content(feeds: dict, hours: int) -> list[dict]:
     """
-    Coordinates RSS scraping process.
+    Coordinates the scraping process using the generator.
     """
 
     new_articles = []
 
     for source, url in feeds.items():
         logger.info(f"Checking RSS feed: {source}")
-        feed = feedparser.parse(url)
 
-        for entry in feed.entries:
-            if is_recent_article(entry, hours):
-                article = transform_entry(source, entry)
-                # Only add if content extraction was successful
-                if article:
-                    new_articles.append(article)
-                    logger.info(f"Scraped: {article['title']}")
+        for article in process_feed_entries(source, url, hours):
+            new_articles.append(article)
+            logger.info(f"Scraped: {article['title']}")
 
     return new_articles
 
