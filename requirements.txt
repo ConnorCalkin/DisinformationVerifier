@@ -38,5 +38,7 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 requests
 pytest
-chromadb
 python-dotenv
+psycopg2
+aws-secretsmanager-caching
+boto3
