@@ -9,7 +9,7 @@ These claims are then sent to multiple lambda functions via lambda urls.
 
 import streamlit as st
 import requests
-from collections.abc import Callable
+import plotly.graph_objects as go
 
 # TODO: import function that retrieves claims from a text body.
 
@@ -103,6 +103,46 @@ def set_up_follow_up_inputs(source_type):
     return source
 
 
+def st_color_bar(value):
+    # Ensure the value stays within 0 and 1
+    val = max(0.0, min(1.0, value))
+
+    # Define the colors matching Streamlit's palette
+    # Red (Error), Orange (Warning), Green (Success)
+    colors = [[0, "#FF4B4B"], [0.5, "#FFA421"], [1, "#28A745"]]
+
+    fig = go.Figure(go.Bar(
+        x=[val],
+        y=[" "],
+        orientation='h',
+        marker=dict(
+            color=[val],
+            colorscale=colors,
+            cmin=0,
+            cmax=1,
+            # Adding a subtle border to define the bar shape
+            line=dict(width=0)
+        ),
+        width=0.2
+    ))
+
+    fig.update_layout(
+        xaxis=dict(range=[0, 1], showgrid=False,
+                   zeroline=False, visible=False),
+        yaxis=dict(showgrid=False, zeroline=False, visible=False),
+        # Set height small to look like a bar, remove margins
+        height=50,
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        showlegend=False,
+    )
+
+    
+    st.plotly_chart(fig, use_container_width=True,
+                config={'displayModeBar': False})
+
+
 def display_claims(claims: list[dict]) -> None:
     """Display claims and their ratings in the Streamlit app."""
 
@@ -167,6 +207,38 @@ def click_button() -> list[dict]:
 
     else:
         return None
+
+def display_input_metrics(claims_and_rating:list[dict]) -> None:
+    """Display bar metrics about the user input. These include:
+    -Trustworthiness
+    -Correctness
+    -Overall
+    -Confidence""" 
+
+    trust, correctness, overall, confidence = create_metrics(claims_and_rating)
+
+    fields, values = st.columns([1, 3])
+
+    with fields:
+        st.markdown("**Trustworthiness:**")
+        st.markdown("**Correctness:**")
+        st.markdown("**Overall:**")
+        st.markdown("**Confidence:**")
+    with values:
+        st_color_bar(trust)
+        st_color_bar(correctness)
+        st_color_bar(overall)
+        st_color_bar(confidence)
+        
+
+
+def create_metrics(claims_and_rating:list[dict]) -> tuple[float, float, float, float]:
+    """Create metrics about the user input based on the claims and their ratings."""
+
+    #TODO: Create function to calculate metrics based on claims and their ratings.
+    
+    return 0.1, 0.5, 0.75, 0.9
+
     
 placeholder = st.empty()
 
@@ -179,6 +251,9 @@ with placeholder.container(border=True):
 if claims:
     
     placeholder.empty()
+
+    display_input_metrics(claims)
+    
     display_claims(claims)
 
     if st.button('Verify another claim?'):
