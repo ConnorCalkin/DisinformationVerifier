@@ -6,7 +6,6 @@ import wikipedia
 import wikipediaapi
 from openai import OpenAI
 
-
 sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
 wiki_api = wikipediaapi.Wikipedia(user_agent="DisinformationVerifier/1.0", language='en')
 
@@ -65,7 +64,7 @@ def get_openai_client() -> OpenAI:
 def _call_llm_for_terms(openai_client: OpenAI, prompt: str) -> list[str]:
     """ Phase 1: API Interaction - Only for networking calls to the LLM. """
     response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5-nano",
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"}
     )
