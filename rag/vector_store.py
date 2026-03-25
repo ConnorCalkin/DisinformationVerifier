@@ -3,7 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def add_chunks_to_rds(conn, chunks: list[str], embeddings: list[list[float]], metadata: dict):
+def add_chunks_to_rds(conn, chunks: list[str], embeddings: list[list[float]], metadata: dict) -> None:
     """
     Saves chunk text and metadata to RDS.
     - allows for fast retrieval later

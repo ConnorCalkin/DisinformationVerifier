@@ -1,7 +1,6 @@
 '''
     Main function for the RAG lambda.
 '''
-from linecache import cache
 import logging
 
 import psycopg2

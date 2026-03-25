@@ -1,15 +1,13 @@
 import os
 import logging
 import psycopg2
+from psycopg2.extensions import connection
 from psycopg2.errors import ConnectionFailure
-import boto3
-from botocore.exceptions import ClientError
-import json
 
 logger = logging.getLogger(__name__)
 
 
-def get_db_connection():
+def get_db_connection() -> connection:
     '''
     Connects to the RDS database and returns a connection object.
     '''
