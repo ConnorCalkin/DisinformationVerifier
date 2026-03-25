@@ -1,40 +1,28 @@
-"""
-Purpose: Find relevant chunks for a question.
-"""
-
-import logging
-
-logger = logging.getLogger(__name__)
+from psycopg2.extensions import connection
+from psycopg2.extras import DictCursor
+from embedding import get_embedding
 
 
-def retrieve_chunks(collection,
-                    query: str,
-                    n_results: int = 3,
-                    min_dist: float = 0) -> list[tuple[str, dict, float]]:
+def retrieve_relevant_chunks(connection: connection, query: str, top_k: int = 5) -> list[dict]:
     """
-    Queries chroma with the document to find relevant chunks.
-    returns the chunk text, metadata, and distance for each relevant chunk.
-    returns at max n_results chunks that have a distance above min_dist.
-    only returns chunks that are relevant to the query (distance above min_dist).
+    Retrieves the most relevant chunks for a given query.
     """
 
-    # 2. Query Chroma
-    results = collection.query(
-        query_texts=[query],
-        n_results=n_results
+    # Get an embedding for the query
+    embedding = get_embedding(query)
+
+    # Query the database for the most relevant chunks
+    cursor = connection.cursor(cursor_factory=DictCursor)
+    cursor.execute(
+        """
+        SELECT title, content, source_url, created_at, (embedding <=> %s::vector) AS distance
+        FROM documents
+        ORDER BY distance ASC
+        LIMIT %s;
+        """,
+        (embedding, top_k)
     )
 
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
+    results = cursor.fetchall()
 
-    # Filter results based on distance threshold
-    filtered_results = [
-        (doc, meta, dist)
-        for doc, meta, dist in zip(documents, metadatas, distances)
-        if dist >= min_dist
-    ]
-
-    logger.info("Retrieved %d chunks", len(filtered_results))
-
-    return filtered_results
+    return results

@@ -1,34 +1,37 @@
-"""
-Purpose: Store chunks in Chroma.
-"""
-
-
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def add_chunks(collection, chunks: list[str], metadata: dict):
+def add_chunks_to_rds(conn, chunks: list[str], embeddings: list[list[float]], metadata: dict):
     """
-    Saves chunk text, embedding, and metadata.
-    - allows for fast semantic search later
+    Saves chunk text and metadata to RDS.
+    - allows for fast retrieval later
     """
 
-    ids = [f"{metadata['article_id']}_{i}" for i in range(len(chunks))]
-
-    metadatas = [
-        {
-            **metadata,
-            "chunk_index": i
-        }
-        for i in range(len(chunks))
-    ]
-
-    collection.add(
-        documents=chunks,
-        metadatas=metadatas,
-        ids=ids
-    )
+    with conn.cursor() as cur:
+        for i, chunk in enumerate(chunks):
+            embedding_data = embeddings[i]
+            cur.execute(
+                """
+                INSERT INTO documents (
+                    title,
+                    source_url,
+                    content,
+                    created_at,
+                    embedding
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    metadata['title'],
+                    metadata['source_url'],
+                    chunk,
+                    metadata['created_at'],
+                    embedding_data
+                )
+            )
+        conn.commit()
 
     logger.info(
-        "Stored %d chunks for article %s", len(chunks), metadata['article_id'])
+        "Stored %d chunks for article %s in RDS", len(chunks), metadata['article_id'])

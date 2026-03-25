@@ -1,12 +1,14 @@
 '''
     Main function for the RAG lambda.
 '''
+from linecache import cache
 import logging
 
-from chromadb.errors import ChromaError
+import psycopg2
 
-from connection import get_chroma_client_local, get_article_collection
-from retrieval import retrieve_chunks
+
+from connection import get_db_connection
+from retrieval import retrieve_relevant_chunks
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,18 +55,6 @@ def main(event: dict = None, context: dict = None) -> dict:
             """
         }
 
-    # connect to Chroma and get the article collection
-    # TODO: Update this to connect to a remote Chroma instance
-    try:
-        client = get_chroma_client_local()
-        collection = get_article_collection(client)
-    except ChromaError as e:
-        logger.error("Error connecting to Chroma: %s", e)
-        return {
-            "statusCode": 500,
-            "body": f"Error connecting to Chroma: {e}"
-        }
-
     # add possible params to the retrieval function
     params = {}
     if "n_results" in event:
@@ -74,11 +64,12 @@ def main(event: dict = None, context: dict = None) -> dict:
 
     # retrieve chunks for each query in the event
     try:
-        chunks = [
-            retrieve_chunks(collection, query, **params)
-            for query in event.get("queries", [])
-        ]
-    except ChromaError as e:
+        with get_db_connection() as connection:
+            chunks = [
+                retrieve_relevant_chunks(connection, query, **params)
+                for query in event.get("queries", [])
+            ]
+    except psycopg2.Error as e:
         logger.error("Error retrieving chunks: %s", e)
         return {
             "statusCode": 500,
@@ -91,14 +82,3 @@ def main(event: dict = None, context: dict = None) -> dict:
         "statusCode": 200,
         "body": chunks
     }
-
-
-if __name__ == "__main__":
-    DOCUMENTS = [
-        "THIS IS A DOCUMENT",
-        "THIS IS ANOTHER DOCUMENT",
-        "THIS IS YET ANOTHER DOCUMENT",
-    ]
-    main(event={
-        "queries": DOCUMENTS
-    })

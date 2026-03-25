@@ -1,10 +1,5 @@
-"""
-Purpose: Convert text into vectors.
-"""
-
 import os
 import logging
-
 from openai import OpenAI
 
 logger = logging.getLogger(__name__)
