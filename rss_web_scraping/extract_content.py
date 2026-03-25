@@ -99,18 +99,23 @@ def get_content_body(url: str) -> str:
 
 
 def is_recent_article(entry, cutoff_hours: int) -> bool:
-    """
-    Checks if the article is recent enough to be scraped.
-    """
+    """Checks if the article is recent enough to be scraped."""
 
-    if not hasattr(entry, 'published_parsed'):
-        logger.warning("Entry missing 'published_parsed': %s",
+    # Check if attribute exists AND is not None
+    published_parsed = getattr(entry, 'published_parsed', None)
+
+    if published_parsed is None:
+        logger.warning("Entry missing or null 'published_parsed': %s",
                        getattr(entry, 'title', 'No Title'))
         return False
 
-    published_dt = datetime.fromtimestamp(
-        time.mktime(entry.published_parsed), tz=timezone.utc
-    )
+    try:
+        published_dt = datetime.fromtimestamp(
+            time.mktime(published_parsed), tz=timezone.utc
+        )
+    except (TypeError, ValueError):
+        return False
+
     cutoff = datetime.now(timezone.utc) - timedelta(hours=cutoff_hours)
     return published_dt > cutoff
 

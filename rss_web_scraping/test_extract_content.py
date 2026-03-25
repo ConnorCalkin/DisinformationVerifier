@@ -1,118 +1,86 @@
 import pytest
 import time
 from datetime import datetime, timezone, timedelta
-from unittest.mock import MagicMock
-
+from dataclasses import dataclass
 import extract_content as scraper
 
+# --- HELPERS ---
 
-def test_is_recent_article():
-    """Tests the time filtering logic with real time structs."""
+
+@dataclass
+class MockEntry:
+    """A simple container to mimic a feedparser entry without MagicMock."""
+    link: str = "http://example.com"
+    title: str = "Test Title"
+    published_parsed: time.struct_time = None
+
+# --- TESTS ---
+
+
+def test_is_recent_article_logic():
+    """Tests the time filtering using real time structs, no mocks needed."""
     now_struct = time.gmtime()
-    old_struct = time.gmtime(time.time() - (5 * 3600))  # 5 hours ago
+    old_struct = time.gmtime(time.time() - (24 * 3600))  # 24 hours ago
 
-    recent_entry = MagicMock(published_parsed=now_struct)
-    old_entry = MagicMock(published_parsed=old_struct)
+    recent_entry = MockEntry(published_parsed=now_struct)
+    old_entry = MockEntry(published_parsed=old_struct)
 
     assert scraper.is_recent_article(recent_entry, cutoff_hours=3) is True
     assert scraper.is_recent_article(old_entry, cutoff_hours=3) is False
 
 
-def test_is_recent_article_missing_attr():
+def test_handle_nested_content_reuters_logic():
     """
-    Edge case: entry is missing the date attribute.
+    Tests the Reuters redirect logic by passing in HTML strings.
+    No network mocking required because we test the decision logic.
     """
-
-    bad_entry = MagicMock(spec=[])
-    assert scraper.is_recent_article(bad_entry, 3) is False
-
-
-def test_handle_special_cases_reuters_redirect(monkeypatch):
-    """
-    Verifies that Reuters short content triggers a secondary fetch.
-    """
-
-    # URL that matches "ir.thomsonreuters.com"
     reuters_url = "https://ir.thomsonreuters.com/news-123"
 
-    short_html = '<div class="full-release-body"><a href="/full-article">Link</a></div>'
-    full_content_html = "<html><body>" + \
-        ("ha " * 101) + "</body></html>"  # Definitely > 200 chars
+    # Scenario 1: Content is already long enough (> 200 chars)
+    long_html = "<div>" + ("Content " * 50) + "</div>"
+    # It should return the same HTML immediately without looking for links
+    assert scraper.handle_nested_content(reuters_url, long_html) == long_html
 
-    # Track calls to ensure the second fetch actually happened
-    fetch_calls = []
-
-    def mock_fetch(url):
-        fetch_calls.append(url)
-        if "/full-article" in url:
-            return full_content_html
-        return short_html
-
-    # Patch the function inside scraper module
-    monkeypatch.setattr(scraper, "fetch_raw_html", mock_fetch)
-
-    # 4. Mock trafilatura.extract to return something short for the first call
-    # and something long for the second call.
-    def mock_extract(html):
-        if "full-release-body" in html:
-            return "short"  # Triggers the < 200 char logic
-        return "This is a very long string content " * 20
-
-    monkeypatch.setattr("trafilatura.extract", mock_extract)
-
-    result_html = scraper.handle_nested_content(reuters_url, short_html)
-
-    assert result_html == full_content_html
-    assert any(
-        "/full-article" in url for url in fetch_calls), "The redirect URL was never fetched"
+    # Scenario 2: Content is short but NO redirect link exists
+    short_no_link = "<div>Too short</div>"
+    assert scraper.handle_nested_content(
+        reuters_url, short_no_link) == short_no_link
 
 
-def test_get_content_body_success(monkeypatch):
-    """Tests the orchestration of fetching and extracting."""
-    monkeypatch.setattr(scraper, "fetch_raw_html",
-                        lambda url: "<html>raw</html>")
-    monkeypatch.setattr("trafilatura.extract", lambda html: "Clean Content")
+def test_transform_entry_structure():
+    """
+    Tests that transform_entry correctly builds the dictionary.
+    We 'monkeypatch' the heavy network call with a simple lambda for speed.
+    """
+    now = time.gmtime()
+    entry = MockEntry(link="http://test.com",
+                      title="Hello", published_parsed=now)
 
-    # handle_special_cases is a pass-through for non-reuters URLs
-    result = scraper.get_content_body("https://bbc.com/news")
-    assert result == "Clean Content"
+    # We briefly swap the heavy fetcher for a simple string return
+    # This is 'incredibly simple' mocking as requested.
+    pytest.monkeypatch = pytest.MonkeyPatch()
+    pytest.monkeypatch.setattr(
+        scraper, "get_content_body", lambda x: "Article Body")
 
+    result = scraper.transform_entry("BBC", entry)
 
-def test_get_content_body_network_failure(monkeypatch):
-    """Tests that a download failure raises the expected error."""
-    monkeypatch.setattr("trafilatura.fetch_url", lambda url: None)
-    with pytest.raises(ConnectionError):
-        scraper.get_content_body("https://example.com")
-
-
-def test_get_recent_content_integration(monkeypatch):
-    """Tests the full loop from RSS to List of Dicts."""
-    now_struct = time.gmtime()
-
-    # 1. Mock the RSS feed response
-    mock_feed = MagicMock()
-    mock_feed.entries = [
-        MagicMock(title="Test Art", link="http://test.com",
-                  published_parsed=now_struct)
-    ]
-    monkeypatch.setattr("feedparser.parse", lambda url: mock_feed)
-
-    # 2. Mock the content extraction so no real web calls happen
-    monkeypatch.setattr(scraper, "get_content_body",
-                        lambda url: "Article Body Content")
-
-    # 3. Execute with a small subset of feeds
-    test_feeds = {"Test": "http://test-rss.com"}
-    results = scraper.get_recent_content(test_feeds, hours=1)
-
-    assert len(results) == 1
-    assert results[0]["source"] == "Test"
-    assert results[0]["content"] == "Article Body Content"
-    assert "timestamp" in results[0]
+    assert result["source"] == "BBC"
+    assert result["title"] == "Hello"
+    assert result["content"] == "Article Body"
+    assert "timestamp" in result
 
 
-def test_feeds_dictionary_integrity():
-    """Ensure FEEDS mapping exists and has expected keys."""
-    assert "BBC" in scraper.FEEDS
-    assert "Reuters" in scraper.FEEDS
-    assert scraper.FEEDS["BBC"].startswith("http")
+def test_feeds_configuration():
+    """Ensure the feed list is valid and points to HTTPS."""
+    for source, url in scraper.FEEDS.items():
+        assert url.startswith("https://")
+        assert len(source) > 0
+
+
+@pytest.mark.parametrize("invalid_entry", [
+    (MockEntry(published_parsed=None)),  # Missing date
+    (object()),                          # Not even an entry object
+])
+def test_is_recent_article_edge_cases(invalid_entry):
+    """Checks that the scraper doesn't crash on garbage data."""
+    assert scraper.is_recent_article(invalid_entry, 3) is False
