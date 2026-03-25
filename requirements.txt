@@ -1,0 +1,8 @@
+
+boto3
+wikipedia
+wikipedia-api
+openai
+trafilatura
+feedparser
+bs4
