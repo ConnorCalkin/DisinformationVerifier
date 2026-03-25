@@ -1,3 +1,12 @@
+
+boto3
+wikipedia
+wikipedia-api
+trafilatura
+feedparser
+bs4
+plotly
+streamlit
 annotated-types==0.7.0
 anyio==4.12.1
 astroid==4.0.4
@@ -28,7 +37,6 @@ tqdm==4.67.3
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 requests
-openai
 pytest
 chromadb
 python-dotenv
