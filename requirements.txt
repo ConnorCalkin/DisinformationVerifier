@@ -6,3 +6,5 @@ openai
 trafilatura
 feedparser
 bs4
+plotly
+streamlit

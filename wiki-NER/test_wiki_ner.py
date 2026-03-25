@@ -1,3 +1,4 @@
+# pylint: skip-file
 import pytest
 import json
 from unittest.mock import MagicMock, patch
