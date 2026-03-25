@@ -91,7 +91,7 @@ def get_content_body(url: str) -> str:
 
     try:
         content = trafilatura.extract(final_html)
-    except Exception as e:
+    except RuntimeError as e:
         logger.warning("Failed to extract content from %s: %s", url, str(e))
         return ""
 
