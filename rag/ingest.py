@@ -12,19 +12,6 @@ from vector_store import add_chunks
 logger = logging.getLogger(__name__)
 
 
-def generate_chunks(article_id: str, text: str) -> list[str]:
-    """
-    Takes the full text of an article, loops through it, creating overlapping chunks.
-    """
-    chunks = chunk_text(text)
-
-    if not chunks:
-        logger.warning("No chunks created for article %s", article_id)
-        raise ValueError(f"No chunks created for article {article_id}")
-
-    return chunks
-
-
 def build_metadata(article_id: str, title: str, url: str) -> dict:
     """
     Builds metadata dict for an article, which will be stored with each chunk.
@@ -58,7 +45,7 @@ def ingest_article(collection, title: str, url: str, text: str) -> None:
         raise ValueError(f"Invalid article text for URL {url}")
 
     article_id = generate_article_id(url)
-    chunks = generate_chunks(article_id, text)
+    chunks = chunk_text(text)
     metadata = build_metadata(article_id, title, url)
     add_chunks(collection, chunks, metadata)
 

@@ -15,7 +15,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def is_valid_event(event: dict) -> None:
+def is_valid_event(event: dict) -> bool:
     """
     Returns True if the event is valid, False otherwise.
     """
