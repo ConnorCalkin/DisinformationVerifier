@@ -1,5 +1,6 @@
 """Functions for validating URLs, fetching HTML, and extracting article text."""
 
+import json
 from urllib.parse import urlparse
 import logging
 
@@ -79,8 +80,6 @@ def scrape_article_text(url: str) -> str:
     Orchestrator function. Validates URL, fetches HTML, extracts content.
     """
 
-    setup_logging()
-
     url = normalise_url(url)
 
     if not validate_url(url):
@@ -97,3 +96,48 @@ def scrape_article_text(url: str) -> str:
         raise ValueError(f"Failed to extract content from: {url}")
 
     return content
+
+
+def lambda_handler(event, context):
+    """
+    Main entry point for the Lambda Function URL.
+    """
+
+    setup_logging()
+
+    try:
+        body_str = event.get("body", "{}")
+
+        body = json.loads(body_str)
+        target_url = body.get("url")
+
+        if not target_url:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"error": "No 'url' key found in request body"})
+            }
+
+        logger.info("Starting scrape for: %s", target_url)
+        content = scrape_article_text(target_url)
+
+        # 3. Return a successful response
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "url": target_url,
+                "text": content
+            })
+        }
+
+    except json.JSONDecodeError:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "Invalid JSON in request body"})
+        }
+    except RuntimeError as e:
+        logger.error(f"Error during execution: {str(e)}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": str(e)})
+        }
