@@ -23,16 +23,22 @@ def is_valid_event_body(event_body: dict) -> bool:
     """
 
     if not isinstance(event_body, dict):
+        logger.error("Event body is not a dict: %s", event_body)
         return False
 
     if "queries" not in event_body:
+        logger.error(
+            "Event body does not contain 'queries' key: %s", event_body)
         return False
 
     if not isinstance(event_body["queries"], list):
+        logger.error("Event body 'queries' key is not a list: %s", event_body)
         return False
 
     for query in event_body["queries"]:
         if not isinstance(query, str):
+            logger.error(
+                "Event body 'queries' list contains non-string: %s", query)
             return False
 
     return True
@@ -51,9 +57,9 @@ def main(event: dict = None, context: dict = None) -> dict:
         - retrieves relevant chunks for each query in the event
         - returns the retrieved chunks and their metadata
     '''
-    event_body = event.get("body", {})
+    event_body = json.loads(event.get("body", {}))
     if is_valid_event_body(event_body) is False:
-        logger.warning("Invalid event format: %s", event_body)
+        logger.error("Invalid event format: %s", event_body)
         return {
             "statusCode": 400,
             "body": """
