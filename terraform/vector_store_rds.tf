@@ -31,7 +31,7 @@ resource "aws_db_instance" "rds_instance" {
   engine_version         = "13"
   instance_class         = "db.t3.micro"
   username               = var.db_username
-  password               = var.db_password
+  password               = jsondecode(data.aws_secretsmanager_secret_version.credentials_val.secret_string)["RDS_PASSWORD"]
   parameter_group_name   = "default.postgres13"
   skip_final_snapshot    = true
   

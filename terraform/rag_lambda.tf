@@ -49,7 +49,7 @@ resource "aws_iam_policy" "rag_lambda_secrets_read_policy" {
                 Action = [
                     "secretsmanager:GetSecretValue"
                 ],
-                Resource = aws_secretsmanager_secret.openai_key.arn
+                Resource = aws_secretsmanager_secret.credentials.arn
             }
         ]
     })
@@ -70,8 +70,8 @@ resource "aws_iam_role_policy_attachment" "rag_lambda_rds_access" {
     policy_arn = aws_iam_policy.rag_lambda_rds_access_policy.arn
 }
 
-data "aws_secretsmanager_secret_version" "openai_key_val" {
-    secret_id = aws_secretsmanager_secret.openai_key.id
+data "aws_secretsmanager_secret_version" "credentials_val" {
+    secret_id = aws_secretsmanager_secret.credentials.id
 }
 
 #create lambda function from image
@@ -90,8 +90,8 @@ resource "aws_lambda_function" "rag_lambda" {
             DB_HOST     = aws_db_instance.rds_instance.address
             DB_NAME     = var.db_name
             DB_USER     = var.db_username
-            DB_PASSWORD = jsondecode(data.aws_secretsmanager_secret_version.openai_key_val.secret_string)["RDS_PASSWORD"]
-            SECRET_ID   = aws_secretsmanager_secret.openai_key.name
+            DB_PASSWORD = jsondecode(data.aws_secretsmanager_secret_version.credentials_val.secret_string)["RDS_PASSWORD"]
+            SECRET_ID   = aws_secretsmanager_secret.credentials.name
         }
     }
 }

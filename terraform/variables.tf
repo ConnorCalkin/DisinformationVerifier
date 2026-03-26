@@ -4,12 +4,6 @@ variable "db_username" {
   default = "postgres"
 }
 
-variable "db_password" {
-  description = "Password for the RDS database"
-  type = string
-  sensitive = true
-}
-
 variable "db_name" {
   description = "Name of the RDS database"
   type        = string
