@@ -53,7 +53,7 @@ def datetime_handler(obj):
 def main(event: dict = None, context: dict = None) -> dict:
     '''
         Main function for the RAG lambda
-        - connects to Chroma
+        - connects to the database
         - retrieves relevant chunks for each query in the event
         - returns the retrieved chunks and their metadata
     '''
