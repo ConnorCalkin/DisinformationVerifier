@@ -1,5 +1,5 @@
 from psycopg2.extensions import connection
-from psycopg2.extras import DictCursor
+from psycopg2.extras import RealDictCursor
 from embedding import get_embedding
 
 
@@ -15,7 +15,7 @@ def retrieve_relevant_chunks(connection: connection,
     embedding = get_embedding(query)
 
     # Query the database for the most relevant chunks
-    cursor = connection.cursor(cursor_factory=DictCursor)
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
         """
         SELECT title, content, source_url, published_at, (embedding <=> %s::vector) AS distance
