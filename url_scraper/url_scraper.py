@@ -10,17 +10,34 @@ import validators
 logger = logging.getLogger("URLScraper")
 
 
+def normalise_url(url: str) -> str:
+    """
+    Normalises a URL by adding 'http://' if missing.
+    This allows users to input URLs in a more flexible way.
+    """
+
+    if url and not url.startswith(("http://", "https://")):
+        logger.info(f"Normalising URL: adding https:// to {url}")
+        url = "https://" + url
+    return url
+
+
 def validate_url(url: str) -> bool:
     """
-    Checks if a string is a properly formatted, absolute URL.
+    Validates a URL, supporting both full addresses and those starting with 'www'.
     """
-    # Basic structural check (checks for http/https, domain, etc.)
+    if not url:
+        return False
+
+    # 2. Structure check using the 'validators' library
     if not validators.url(url):
         return False
 
-    # Fact-checking specific check: Ensure it has a scheme and netloc (e.g. example.com)
+    # 3. Protocol & Netloc check
     parsed = urlparse(url)
-    if not all([parsed.scheme, parsed.netloc]):
+
+    # Ensure it's web-based and has a domain (netloc)
+    if parsed.scheme not in ["http", "https"] or not parsed.netloc:
         return False
 
     return True
@@ -63,6 +80,8 @@ def scrape_article_text(url: str) -> str:
     """
 
     setup_logging()
+
+    url = normalise_url(url)
 
     if not validate_url(url):
         logger.warning("Invalid URL: %s", url)

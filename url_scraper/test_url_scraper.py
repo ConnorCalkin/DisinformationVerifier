@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from url_scraper import validate_url, extract_content, fetch_html, scrape_article_text
+from url_scraper import validate_url, extract_content, scrape_article_text, normalise_url
 
 
 # Testing Validation Logic (Pure Function)
@@ -13,6 +13,12 @@ def test_validate_url_success():
 
     assert validate_url("https://www.bbc.com/news/world") is True
     assert validate_url("http://example.com") is True
+
+
+def test_normalise_url():
+    """Verify that URLs starting with 'www.' are normalised correctly."""
+
+    assert normalise_url("www.bbc.co.uk") == "https://www.bbc.co.uk"
 
 
 def test_validate_url_failure():
