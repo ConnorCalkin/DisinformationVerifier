@@ -1,10 +1,10 @@
+import logging
+from os import environ
+from datetime import datetime
 import psycopg2
 from psycopg2 import connect
 from psycopg2.extras import RealDictCursor
 from psycopg2.extensions import connection
-import logging
-from os import environ
-from datetime import datetime
 
 def setup_logging():
     """ Configures logging for the application. Logs will be sent to the console. """
