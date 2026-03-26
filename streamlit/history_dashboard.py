@@ -99,7 +99,7 @@ def render_history_detail_screen(input_id: int, screen_placeholder) -> None:
 
     with screen_placeholder.container():
         if st.button("⬅️ Back to History"):
-            st.session_state.page = "History List"
+            st.session_state.page = "Input History List"
             st.rerun()
 
         st.title("Analysis Results")

@@ -90,55 +90,84 @@ def fetch_input_details(input_id: int) -> dict:
             """
     return run_query(query, (input_id,))
 
-def archive_user_input(input_text: str, 
-                       input_summary: str, 
-                       source_type_name: str, 
-                       confidence: float, 
-                       accuracy: float, 
-                       metrics_summary: str, 
+
+def metrics_input_query(confidence: float, accuracy: float, metrics_summary: str) -> str:
+    """ Helper function to generate the SQL query for inserting metrics. """
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute( """
+                INSERT INTO metrics (confidence, accuracy, metrics_summary)
+                VALUES (%s, %s, %s) RETURNING metrics_id
+                """, (confidence, accuracy, metrics_summary))
+            metrics_id = cur.fetchone()['metrics_id']
+    return metrics_id
+
+def source_type_query(source_type_name: str) -> str:
+    """ Helper function to generate the SQL query for inserting source type. """
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO source_type (source_type_name)
+                VALUES (%s) 
+                ON CONFLICT (source_type_name) DO UPDATE SET source_type_name = EXCLUDED.source_type_name
+                RETURNING source_type_id
+                """, (source_type_name,))
+            source_type_id = cur.fetchone()['source_type_id']
+    return source_type_id
+
+def input_query(input_text: str, input_summary: str, source_type_id: int, metrics_id: int) -> str:
+    """ Helper function to generate the SQL query for inserting input. """
+    created_at = datetime.now()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO input (input_text, input_summary, source_type_id, metrics_id, created_at)
+                VALUES (%s, %s, %s, %s, %s) RETURNING input_id
+                """, (input_text, input_summary, source_type_id, metrics_id, created_at))
+            input_id = cur.fetchone()['input_id']
+    return input_id
+
+def claim_query(input_id: int, claim_text: str, rating: str, evidence: str) -> None:
+    """ Helper function to generate the SQL query for inserting claims. """
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO claim (input_id, claim_text, rating, evidence)
+                VALUES (%s, %s, %s, %s)
+                """, (input_id, claim_text, rating, evidence))
+
+
+def archive_user_input(input_text: str,
+                       input_summary: str,
+                       source_type_name: str,
+                       confidence: float,
+                       accuracy: float,
+                       metrics_summary: str,
                        claims: list[dict]) -> None:
     """ 
     Archives a new user input along with its claims and metrics into the database. 
     Uses a transaction to ensure data integrity across multiple tables.
     """
-    created_at = datetime.now()
     conn = get_db_connection()
     try:
-        with conn.cursor() as cur:
-            # Insert metrics to retrieve metrics_id
-            cur.execute("""
-                        INSERT INTO metrics (confidence, accuracy, metrics_summary)
-                        VALUES (%s, %s, %s) RETURNING metrics_id
-                        """, (confidence, accuracy, metrics_summary))
-            metrics_id = cur.fetchone()['metrics_id']
-
-            # Insert source type to retrieve source_type_id
-            cur.execute("""
-                        INSERT INTO source_type (source_type_name)
-                        VALUES (%s) 
-                        ON CONFLICT (source_type_name) DO UPDATE SET source_type_name = EXCLUDED.source_type_name
-                        RETURNING source_type_id
-                        """, (source_type_name,))
-            source_type_id = cur.fetchone()['source_type_id']
-
-            # Insert input and retrieve input_id
-            cur.execute("""
-                        INSERT INTO input (input_text, input_summary, source_type_id, metrics_id)
-                        VALUES (%s, %s, %s, %s) RETURNING input_id
-                        """, (input_text, input_summary, source_type_id, metrics_id))
-            input_id = cur.fetchone()['input_id']
-
-            # Insert claims
-            for claim in claims:
-                cur.execute("""
-                            INSERT INTO claim (input_id, claim_text, rating, evidence)
-                            VALUES (%s, %s, %s, %s)
-                            """, (input_id, claim['claim_text'], claim['rating'], claim['evidence'])) 
-            conn.commit()
-            logging.info(f"Successfully archived user input with input_id: {input_id}")
+        # Insert metrics to retrieve metrics_id
+        metrics_id = metrics_input_query(confidence, accuracy, metrics_summary)
+        # Insert source type to retrieve source_type_id
+        source_type_id = source_type_query(source_type_name)
+        # Insert input and retrieve input_id
+        input_id = input_query(input_text, input_summary,
+                               source_type_id, metrics_id)
+        # Insert claims
+        for claim in claims:
+            claim_query(input_id, claim['claim_text'],
+                        claim['rating'], claim['evidence'])
+        conn.commit()
+        logging.info(
+            f"Successfully archived user input with input_id: {input_id}")
     except Exception as e:
         conn.rollback()
         logging.error(f"Error archiving user input: {e}")
-        raise RuntimeError("Failed to archive user input. Check logs for details.")
-    finally:        
+        raise RuntimeError(
+            "Failed to archive user input. Check logs for details.")
+    finally:
         conn.close()
