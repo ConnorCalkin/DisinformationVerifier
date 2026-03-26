@@ -42,3 +42,4 @@ python-dotenv
 psycopg2
 aws-secretsmanager-caching
 boto3
+validators
