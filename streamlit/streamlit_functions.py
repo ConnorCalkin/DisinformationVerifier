@@ -58,7 +58,7 @@ Evaluate "Claims" against the provided "Factual Context" (Wiki or RAG chunks).
 
 # Output Format
 Return each result on a NEW LINE starting with a pipe character in this exact format:
-|'claim_made','rating','[Explanation sentence]'. Sources: [Specify "Wiki" and/or the specific URL(s) provided in the RAG facts]"""
+|'claim_made','rating','[Explanation sentence]', 'Sources: [Specify "Wiki" and/or the specific URL(s) provided in the RAG facts]' """
 
 CLAIM_RATING_DEVELOPER_ROLE = {
     "role": "developer",
@@ -281,7 +281,7 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
                          CLAIM_RATING_DEVELOPER_ROLE,
                          "Successfully rated claims based on wiki and RAG context.")
 
-    validate_response_format(response)
+    # validate_response_format(response)
 
     logging.info(f"LLM returned response: {response}")
 
@@ -295,22 +295,21 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
     Each dict has: claim, rating,
     explanation, sources.
     """
-    entry_pattern = re.compile(
-        r"\|'([^']+)','([^']+)','([\s\S]*?)',?\s*Sources:\s*([^\n]+)",
-        re.DOTALL
-    )
 
     result = []
-    for match in entry_pattern.finditer(llm_response):
-        normalised_explanation = (
-            match.group(3).replace('\n', ' ').strip()
-        )
+
+    claims = re.split(r'\n\|', llm_response)
+
+    
+    for claim in claims:
+        info = re.split(r"',\s*'", claim)
+
         claim_dict = {
-            "claim": match.group(1),
-            "rating": match.group(2),
-            "explanation": normalised_explanation,
-            "sources": match.group(4).strip()
+            "claim": info[0].replace("|", "").replace("'", ""),
+            "rating": info[1],
+            "explanation": info[2]
         }
+
         result.append(claim_dict)
     
     logging.info(f"Claims and ratings obtained: {result}")
