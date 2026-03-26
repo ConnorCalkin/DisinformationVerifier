@@ -2,6 +2,11 @@ data "aws_ecr_repository" "pipeline_repo" {
     name = "c22-dv-pipeline-image"
 }
 
+data "aws_ecr_image" "pipeline_image" {
+    repository_name = data.aws_ecr_repository.pipeline_repo.name
+    image_tag = "latest"
+}
+
 resource "aws_lambda_function" "pipeline_lambda" {
     function_name = "c22-dv-pipeline-lambda"
     role          = aws_iam_role.rds_connect_lambda_role.arn
