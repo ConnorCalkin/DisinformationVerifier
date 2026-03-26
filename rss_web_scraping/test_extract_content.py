@@ -69,7 +69,7 @@ def test_transform_entry_structure():
     assert result["source"] == "BBC"
     assert result["title"] == "Hello"
     assert result["content"] == "Article Body"
-    assert "timestamp" in result
+    assert "published_at" in result
 
 
 def test_feeds_configuration():

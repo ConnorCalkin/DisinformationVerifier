@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS documents (
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     source_url TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     embedding VECTOR(1536) NOT NULL
 );
 
