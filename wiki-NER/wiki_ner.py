@@ -192,7 +192,7 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 200,
                 # Return empty context if no search terms found
-                "body": json.dumps({"wiki_context": [], 
+                "body": json.dumps({"wiki_context": [],
                                     "message": "No relevant search terms found."})
             }
         # Step 3: Resolve those titles to actual Wikipedia articles

@@ -80,18 +80,19 @@ resource "aws_lambda_function" "rag_lambda" {
     role          = aws_iam_role.rag_lambda_role.arn
 
     package_type = "Image"
-    image_uri    = data.aws_ecr_repository.rag_repo.repository_url
+    image_uri    = "${data.aws_ecr_repository.rag_repo.repository_url}:latest"
 
     timeout      = 60
     memory_size  = 512
 
     environment {
         variables = {
-            DB_HOST     = aws_db_instance.rds_instance.address
-            DB_NAME     = var.db_name
-            DB_USER     = var.db_username
-            DB_PASSWORD = jsondecode(data.aws_secretsmanager_secret_version.credentials_val.secret_string)["RDS_PASSWORD"]
-            SECRET_ID   = aws_secretsmanager_secret.credentials.name
+            RDS_HOST        = aws_db_instance.rds_instance.address
+            RDS_DB          = var.db_name
+            RDS_USER        = var.db_username
+            RDS_PASSWORD    = jsondecode(data.aws_secretsmanager_secret_version.credentials_val.secret_string)["RDS_PASSWORD"]
+            RDS_PORT        = 5432
+            SECRET_ID       = aws_secretsmanager_secret.credentials.name
         }
     }
 }
