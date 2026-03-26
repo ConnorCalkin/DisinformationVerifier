@@ -9,6 +9,7 @@ These claims are then sent to multiple lambda functions via lambda urls.
 
 import plotly.graph_objects as go
 import streamlit as st
+import logging
 
 from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
                                  get_claims_from_text, 
@@ -20,6 +21,8 @@ from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_s
 
 WIKI_URL = "https://sw72iuibpt52rj6mzvkvhntn540gzakk.lambda-url.eu-west-2.on.aws/"
 RAG_URL = "https://uhpsokled63gc6jef6gqapj5ou0blbaf.lambda-url.eu-west-2.on.aws/"
+
+setup_logging()
 
 # TODO: import function that retrieves claims from a text body.
 
@@ -191,10 +194,10 @@ def render_claims(claims: list[dict]) -> None:
     """Display claims and their ratings in the Streamlit app."""
 
     box_designs = {  # Different colour boxes for different ratings.
-        'Supported': lambda x: st.success(x),
-        'Misleading': lambda x: st.warning(x),
+        'SUPPORTED': lambda x: st.success(x),
+        'MISLEADING': lambda x: st.warning(x),
         'CONTRADICTED': lambda x: st.error(x),
-        'Unsure': lambda x: st.info(x)
+        'UNSURE': lambda x: st.info(x)
     }
 
     for claim in claims:
@@ -227,12 +230,15 @@ def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict
 
             unrated_claims = get_claims_from_text(user_input)
         
+       
+        logging.info("Connecting to RAG")
         try:
             rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
         except RuntimeError as e:
             st.error(f"An error occurred in RAG servers: {e}")
             return None
         
+        logging.info("Connecting to Wiki")
         try:
             wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
         except RuntimeError as e:
@@ -343,8 +349,6 @@ def render_results_screen(claims_and_ratings: list[dict], screen_placeholder) ->
 
 
 if __name__ == "__main__":
-
-    setup_logging()  # Set up logging for debugging purposes.
 
     placeholder = st.empty()
 

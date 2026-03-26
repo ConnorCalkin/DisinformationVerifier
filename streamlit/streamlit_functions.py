@@ -200,7 +200,7 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
     if response.status_code != 200:
         logging.error(
             f"Lambda request failed with status code {response.status_code}: {response.text}")
-        raise RuntimeError(f"")
+        raise RuntimeError(f"{response.text}")
 
     logging.info(f"Received response from lambda: {response.json()}")
 
