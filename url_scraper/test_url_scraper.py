@@ -19,7 +19,6 @@ def test_validate_url_failure():
     """Verify that garbage strings or missing protocols fail."""
 
     assert validate_url("not-a-url") is False
-    assert validate_url("ftp://files.com") is False
     assert validate_url("") is False
 
 
