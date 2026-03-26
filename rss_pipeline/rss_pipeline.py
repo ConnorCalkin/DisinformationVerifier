@@ -31,6 +31,8 @@ def main(event: dict = None, context: dict = None) -> None:
     with connection.get_db_connection() as conn:
         for article in articles:
             embeddings = []
+
+            # Chunk the aricle text
             try:
                 chunks = chunking.chunk_text(article["content"])
             except Exception as e:
@@ -38,6 +40,7 @@ def main(event: dict = None, context: dict = None) -> None:
                     f"Error chunking article: {e}")
                 continue
 
+            # Generate embeddings for each chunk
             try:
                 for chunk in chunks:
                     embeddings.append(embedding.get_embedding(chunk))
@@ -46,6 +49,7 @@ def main(event: dict = None, context: dict = None) -> None:
                     f"Error generating embedding for article: {e}")
                 continue
 
+            # Store chunks and embeddings in RDS
             try:
                 vector_store.add_chunks_to_rds(
                     conn, chunks, embeddings, article)

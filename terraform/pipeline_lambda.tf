@@ -2,19 +2,6 @@ data "aws_ecr_repository" "pipeline_repo" {
     name = "c22-dv-pipeline-image"
 }
 
-resource "aws_lambda_function_url" "pipeline_lambda_url" {
-  function_name      = aws_lambda_function.pipeline_lambda.function_name
-  authorization_type = "NONE"
-}
-
-resource "aws_lambda_permission" "allow_public_access_pipeline_lambda" {
-  statement_id           = "AllowPublicAccess"
-  action                 = "lambda:InvokeFunctionUrl"
-  function_name          = aws_lambda_function.pipeline_lambda.function_name
-  principal              = "*"
-  function_url_auth_type = "NONE"
-}
-
 resource "aws_lambda_function" "pipeline_lambda" {
     function_name = "c22-dv-pipeline-lambda"
     role          = aws_iam_role.rds_connect_lambda_role.arn
