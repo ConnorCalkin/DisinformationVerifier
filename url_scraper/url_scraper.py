@@ -98,7 +98,7 @@ def scrape_article_text(url: str) -> str:
     return content
 
 
-def lambda_handler(event, context):
+def lambda_handler(event: dict, context: dict) -> dict:
     """
     Main entry point for the Lambda Function URL.
     """
@@ -136,7 +136,7 @@ def lambda_handler(event, context):
             "body": json.dumps({"error": "Invalid JSON in request body"})
         }
     except RuntimeError as e:
-        logger.error(f"Error during execution: {str(e)}")
+        logger.error("Error during execution: %s", str(e))
         return {
             "statusCode": 500,
             "body": json.dumps({"error": str(e)})
