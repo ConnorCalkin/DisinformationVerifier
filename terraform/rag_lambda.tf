@@ -71,7 +71,7 @@ resource "aws_lambda_function" "rag_lambda" {
     role          = aws_iam_role.rag_lambda_role.arn
 
     package_type = "Image"
-    image_uri    = "${aws_ecr_repository.rag_repo.repository_url}@${data.aws_ecr_image.rag_lambda_image.id}"
+    image_uri    = data.aws_ecr_repository.rag_repo.repository_url
 
     timeout      = 60
     memory_size  = 512
