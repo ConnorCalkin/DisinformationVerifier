@@ -11,6 +11,7 @@ from unittest.mock import patch, MagicMock
 from streamlit_functions import (convert_claims_string_to_list, send_url_to_web_scraping_lambda,
                                  send_claims_to_rag_lambda, send_claims_to_wiki_lambda,
                                  create_llm_prompt, validate_inputs_for_prompt,
+                                 convert_llm_response_to_dict, validate_response_format,
                                  Claim)
 
 
@@ -240,16 +241,16 @@ def test_create_llm_prompt():
                 RAG Facts:
                 [fact 1] (Source: https://example.com/fact1, Date: 2024-01-01)
 [fact 2] (Source: https://example.com/fact2, Date: 2024-01-02)
-                
+
                 ### Instructions:
 1. Assign one rating: SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE.
 2. A claim is MISLEADING if it is directionally correct but lacks the specific detail, nuance, or precision found in the sources.
 3. Provide a brief 1-2 sentence explanation.
-4. Identify if the information came from "Wiki", "URL", or "Both".
+4. Identify if the information came from "Wiki", a URL, or multiple.
+5. DO NOT include any sources if the claim is rated UNSURE.
 
 ### Output Format:
-Return ONLY the results. Each claim must be on a new line starting with a pipe character:
-|'claim_made','rating','[Explanation sentence]. Sources: [Source Type]'"""
+|'claim_made','rating','[Explanation]'. Sources: [Wiki and/or the specific Source URL(s) or 'None' if UNSURE]"""
     
 def test_validate_inputs_for_prompt():
     """Tests that the validate_inputs_for_prompt function raises a ValueError when given invalid inputs."""
@@ -262,3 +263,79 @@ def test_validate_inputs_for_prompt():
 
     with pytest.raises(ValueError):
         validate_inputs_for_prompt([Claim(claim_text="claim 1")], ["evidence 1"], "not a list")
+
+
+def test_convert_llm_response_to_dict():
+
+    llm_response = """
+|'The sky is a really light blue.','SUPPORTED','The sources indicate the sky appears blue due to atmospheric scattering and is described as blue during the day.', Sources: Wiki, https://example.com/sky
+|'The grass is green.','UNSURE','No evidence in the provided Wiki or RAG facts about grass color.', Sources: None
+"""
+
+    result = convert_llm_response_to_dict(llm_response)
+
+    assert result == [
+        {
+            "claim": "The sky is a really light blue.",
+            "rating": "SUPPORTED",
+            "explanation": "The sources indicate the sky appears blue due to atmospheric scattering and is described as blue during the day.",
+            "sources": "Wiki, https://example.com/sky"
+        },
+        {
+            "claim": "The grass is green.",
+            "rating": "UNSURE",
+            "explanation": "No evidence in the provided Wiki or RAG facts about grass color.",
+            "sources": "None"
+        }
+    ]
+
+def test_validate_response_format_correct_format_multiple_claims():
+    """Tests that the validate_response_format function does not raise an error when given a correctly formatted response."""
+
+    llm_response = """|'The sky is a really light blue.',
+'SUPPORTED','Wiki cites the sky appears blue due to 
+scattering and the RAG fact describes it as blue during the day, 
+aligning with the claim.' Sources: Wiki, https://example.com/sky
+|'The grass is green.','UNSURE','No grass-color information is 
+provided in the Wiki or RAG facts.' Sources: None
+"""
+
+    try:
+        validate_response_format(llm_response)
+    except ValueError:
+        pytest.fail("validate_response_format raised ValueError unexpectedly!")
+
+
+def test_validate_response_format_correct_format_single_claims():
+    """Tests that the validate_response_format function does not raise an error when given a correctly formatted response."""
+
+    llm_response = """|'The sky is a really light blue.',
+'SUPPORTED','Wiki cites the sky appears blue due 
+to scattering and the RAG fact describes it as blue during the day, 
+aligning with the claim.' Sources: Wiki, https://example.com/sky
+"""
+
+    try:
+        validate_response_format(llm_response)
+    except ValueError:
+        pytest.fail("validate_response_format raised ValueError unexpectedly!")
+    
+def test_validate_response_format_incorrect_format():
+    """Tests that the validate_response_format function 
+    raises a ValueError when given an incorrectly formatted response."""
+
+    llm_response = """The sky is a really light blue.
+    SUPPORTED Wiki cites the sky appears blue due to
+    scattering and the RAG fact describes it as blue during 
+    the day, aligning with the claim. Sources: Wiki, https://example.com/sky"""
+
+    with pytest.raises(ValueError):
+        validate_response_format(llm_response)
+
+    llm_response = """|'The sky is a really light blue.',
+'supported', Wiki cites the sky appears blue due to
+scattering and the RAG fact describes it as blue during 
+the day, aligning with the claim. Sources: Wiki, https://example.com/sky"""
+
+    with pytest.raises(ValueError):
+        validate_response_format(llm_response)

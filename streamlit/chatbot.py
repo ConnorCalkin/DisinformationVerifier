@@ -10,6 +10,17 @@ These claims are then sent to multiple lambda functions via lambda urls.
 import plotly.graph_objects as go
 import streamlit as st
 
+from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
+                                 get_claims_from_text, 
+                                 send_claims_to_rag_lambda,
+                                 send_claims_to_wiki_lambda, rate_claims_via_llm,
+                                 setup_logging,
+                                 Claim)
+
+
+WIKI_URL = "https://sw72iuibpt52rj6mzvkvhntn540gzakk.lambda-url.eu-west-2.on.aws/"
+RAG_URL = "https://uhpsokled63gc6jef6gqapj5ou0blbaf.lambda-url.eu-west-2.on.aws/"
+
 # TODO: import function that retrieves claims from a text body.
 
 # TODO: import function that retrieves article body from a url.
@@ -194,6 +205,8 @@ def render_claims(claims: list[dict]) -> None:
 
 def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict]:
     """
+    Main process function for RAG interface.
+
     Take user input and return claims and their ratings.
     pipeline will be different depending on the input format
 
@@ -201,35 +214,34 @@ def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict
 
     if user_input.strip() != "":
 
-        # TODO: Return list of claims using lambdas, will depend on 'format'.
+        if format == 'Claim':
+            unrated_claims = [Claim(claim_text=user_input)]
 
-        claims = [  # Placeholder claims for testing purposes
-            {
-                'claim': 'The Earth is flat.',
-                'rating': 'Contradicted',
-                'evidence': """Scientific consensus and overwhelming evidence (link)
-                from various fields of study confirm that the Earth is an oblate spheroid."""
-            },
-            {
-                'claim': 'The Earth is the center of the universe.',
-                'rating': 'Contradicted',
-                'evidence': """The heliocentric model, 
-                supported by extensive astronomical observations,
-                demonstrates that the Earth orbits the Sun, 
-                which is just one of billions of stars in the Milky Way galaxy."""
-            },
-            {
-                'claim': 'The Earth is approximately 4.5 billion years old.',
-                'rating': 'Supported',
-                'evidence': """Radiometric dating of rocks and meteorites, 
-                as well as the study of Earth's geological layers, 
-                consistently indicate that the Earth is around 4.5 billion years old."""
-            }
-        ]
-        # Placeholder to test the 'no claims extracted' warning message.
-        claims = []
+        if format == 'URL':
+            article_body = send_url_to_web_scraping_lambda(user_input)
+            unrated_claims = get_claims_from_text(article_body)
+        
+        if format == 'Article Text':
 
-        return claims
+            unrated_claims = get_claims_from_text(user_input)
+        
+        try:
+            rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
+        except RuntimeError as e:
+            st.error(f"An error occurred in RAG servers: {e}")
+            return None
+        
+        try:
+            wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
+        except RuntimeError as e:
+            st.error(f"An error occurred in Wiki servers: {e}")
+            return None
+
+        rated_claims = rate_claims_via_llm(unrated_claims, rag_context, wiki_context)
+
+        rated_claims = convert_llm_response_to_dict(rated_claims)
+
+        return rated_claims
 
 
 def verify_button(user_input: str, format: str) -> list[dict] | None:
@@ -293,7 +305,11 @@ def render_input_screen(screen_placeholder) -> list[dict]:
 
         user_input, format, _, _ = render_and_parse_input_boxes()
 
-        claims_and_ratings = verify_button(user_input, format)
+        try:    
+            claims_and_ratings = verify_button(user_input, format)
+        except RuntimeError as e:
+            st.error(f"An error occurred during verification: {e}")
+            return None
 
         # TODO: Add a function to store claims, ratings, source_type and source in a database for future analysis.
 
@@ -318,6 +334,8 @@ def render_results_screen(claims_and_ratings: list[dict], screen_placeholder) ->
 
 
 if __name__ == "__main__":
+
+    setup_logging()  # Set up logging for debugging purposes.
 
     placeholder = st.empty()
 

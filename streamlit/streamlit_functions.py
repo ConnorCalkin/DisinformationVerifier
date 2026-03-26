@@ -58,7 +58,7 @@ Evaluate "Claims" against the provided "Factual Context" (Wiki or RAG chunks).
 
 # Output Format
 Return each result on a NEW LINE starting with a pipe character in this exact format:
-|'claim_made','rating','[Explanation sentence]. Sources: [Specify "Wiki", "URL", or "Both"]'"""
+|'claim_made','rating','[Explanation sentence]'. Sources: [Specify "Wiki" and/or the specific URL(s) provided in the RAG facts]"""
 
 CLAIM_RATING_DEVELOPER_ROLE = {
     "role": "developer",
@@ -187,23 +187,34 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
     """Sends a POST request to a lambda URL
     and returns the response as a dict."""
 
+    logging.info(f"Sending POST request to lambda at {lambda_url} with payload: {payload}")
+
+    payload["queries"] = payload["claims"]
+
     response = requests.post(
         lambda_url,
         json=payload
     )
+
+    if response.status_code != 200:
+        logging.error(f"Lambda request failed with status code {response.status_code}: {response.text}")
+        raise RuntimeError(f"")
+
+    logging.info(f"Received response from lambda: {response.json()}")
+
     return response.json()
 
 
-def validate_response_status(response: dict, status_key: str) -> None:
-    """Raises RuntimeError if the response
-    status code is not 200."""
+# def validate_response_status(response: dict, status_key: str) -> None:
+#     """Raises RuntimeError if the response
+#     status code is not 200."""
 
-    if response.get(status_key) != 200:
-        error_msg = response.get(
-            "message",
-            "Lambda request failed."
-        )
-        raise RuntimeError(error_msg)
+#     if response.get(status_key) != 200:
+#         error_msg = response.get(
+#             "message",
+#             "Lambda request failed."
+#         )
+#         raise RuntimeError(error_msg)
 
 
 def send_url_to_web_scraping_lambda(user_url: str, lambda_url: str) -> str:
@@ -211,31 +222,40 @@ def send_url_to_web_scraping_lambda(user_url: str, lambda_url: str) -> str:
     and returns the extracted text body."""
     payload = {"url": user_url}
     response = post_to_lambda(lambda_url, payload)
-    validate_response_status(
-        response, "status_code"
-    )
+    # validate_response_status(
+    #     response, "status_code"
+    # )
     return response["message"]
 
 
 def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict]:
     """Sends claims to the RAG lambda and
     returns relevant facts with metadata."""
+
+    claims = [claim.claim_text for claim in claims]  # convert Claim objects to strings
+
     payload = {"claims": claims}
     response = post_to_lambda(lambda_url, payload)
-    validate_response_status(
-        response, "statusCode"
-    )
-    return response["body"]
+    
+    # validate_response_status(
+    #     response, "statusCode"
+    # )
+
+    return response
 
 
 def send_claims_to_wiki_lambda(claims: list[Claim], lambda_url: str) -> list[dict]:
     """Sends claims to the Wikipedia lambda and
     returns Wikipedia evidence for each claim."""
+
+    claims = [claim.claim_text for claim in claims]  # convert Claim objects to strings
+
     payload = {"claims": claims}
+    
     response = post_to_lambda(lambda_url, payload)
-    validate_response_status(
-        response, "statusCode"
-    )
+    # validate_response_status(
+    #     response, "statusCode"
+    # )
     return response["body"]["wiki_context"]
 
 
@@ -255,9 +275,39 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[str], rag_contex
 
     response = query_llm(prompt, client,
                          CLAIM_RATING_DEVELOPER_ROLE,
-                               "Successfully rated claims based on wiki and RAG context.")
+                         "Successfully rated claims based on wiki and RAG context.")
+
+    validate_response_format(response)
 
     return response
+
+
+def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
+    """Converts LLM rating output string to a
+    list of structured claim dicts.
+
+    Each dict has: claim, rating,
+    explanation, sources.
+    """
+    pipe_line_pattern = re.compile(  # pattern to ascertain information
+        r"\|'([^']+)','([^']+)','([^']+)',\s*Sources:\s*(.+)"
+    )
+
+    result = []
+    for line in llm_response.splitlines():
+        match = pipe_line_pattern.search(line)
+        if not match:
+            continue
+
+        claim_dict = {
+            "claim": match.group(1),
+            "rating": match.group(2),
+            "explanation": match.group(3),
+            "sources": match.group(4).strip()
+        }
+        result.append(claim_dict)
+
+    return result
 
 
 def create_llm_prompt(
@@ -304,18 +354,19 @@ def create_llm_prompt(
                 
                 RAG Facts:
                 {rag_strings}
-                
+
                 ### Instructions:
 1. Assign one rating: SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE.
 2. A claim is MISLEADING if it is directionally correct but lacks the specific detail, nuance, or precision found in the sources.
 3. Provide a brief 1-2 sentence explanation.
-4. Identify if the information came from "Wiki", "URL", or "Both".
+4. Identify if the information came from "Wiki", a URL, or multiple.
+5. DO NOT include any sources if the claim is rated UNSURE.
 
 ### Output Format:
-Return ONLY the results. Each claim must be on a new line starting with a pipe character:
-|'claim_made','rating','[Explanation sentence]. Sources: [Source Type]'"""
+|'claim_made','rating','[Explanation]'. Sources: [Wiki and/or the specific Source URL(s) or 'None' if UNSURE]"""
 
     return prompt
+
 
 def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[str], rag_context: list[dict]) -> None:
     """Validates the inputs for the LLM prompt. Raises ValueError if any of the inputs are invalid."""
@@ -328,13 +379,39 @@ def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[str], rag
 
     if not isinstance(rag_context, list) or not all(isinstance(r, dict) for r in rag_context):
         raise ValueError("RAG context must be a list of dictionaries.")
-    
+
     if claims == []:
         raise ValueError("Claims list is empty.")
     if wiki_context == []:
         raise ValueError("Wiki context list is empty.")
     if rag_context == []:
         raise ValueError("RAG context list is empty.")
+
+
+def validate_response_format(response: str) -> None:
+    """Validates the LLM rating response format.
+    Raises ValueError if pipe-prefixed entries
+    or valid uppercase ratings are absent.
+    """
+    pipe_entry_pattern = re.compile(
+        r"^\|", re.MULTILINE
+    )
+    valid_rating_pattern = re.compile(
+        r"\b(SUPPORTED|CONTRADICTED|MISLEADING|UNSURE)\b"
+    )
+
+    has_pipe_entry = pipe_entry_pattern.search(response)
+    has_valid_rating = valid_rating_pattern.search(response)
+
+    if not has_pipe_entry:
+        raise ValueError(
+            "Response missing pipe-prefixed claim entries."
+        )
+    if not has_valid_rating:
+        raise ValueError(
+            "Response missing a valid uppercase rating."
+        )
+
 
 if __name__ == "__main__":
     # Example usage
@@ -343,9 +420,9 @@ if __name__ == "__main__":
 
     example_claims = [Claim(claim_text="The sky is a really light blue."),
                       Claim(claim_text="The grass is green.")]
-    
+
     example_wiki_context = ["The sky appears blue due to the scattering"
-    "of sunlight by the atmosphere."]
+                            "of sunlight by the atmosphere."]
 
     example_rag_context = [
         {"content": "The sky is often described as blue during the day.",
@@ -354,8 +431,6 @@ if __name__ == "__main__":
     ]
 
     print(
-        rate_claims_via_llm(example_claims, example_wiki_context, example_rag_context)
+        rate_claims_via_llm(
+            example_claims, example_wiki_context, example_rag_context)
     )
-    
-
-
