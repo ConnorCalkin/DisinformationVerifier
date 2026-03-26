@@ -26,11 +26,6 @@ resource "aws_iam_role_policy_attachment" "rag_lambda_logs" {
     policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_role_policy_attachment" "rag_lambda_secrets_read" {
-    role       = aws_iam_role.rag_lambda_role.name
-    policy_arn = aws_iam_policy.rag_lambda_secrets_read_policy.arn
-}
-
 resource "aws_iam_policy" "rag_lambda_rds_access_policy" {
     name = "c22-dv-rag-lambda-rds-access-policy"
 
