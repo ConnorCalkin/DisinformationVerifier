@@ -1,3 +1,16 @@
+resource "aws_lambda_function_url" "wiki_ner_lambda_url" {
+  function_name      = aws_lambda_function.wiki_ner_lambda.function_name
+  authorization_type = "NONE"
+}
+
+resource "aws_lambda_permission" "allow_public_access_wiki_ner_lambda" {
+  statement_id           = "AllowPublicAccess"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.wiki_ner_lambda.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
 resource "aws_lambda_function" "wiki_ner_lambda" {
     function_name = "c22-dv-wiki-ner-lambda"
     role          = aws_iam_role.lambda_role.arn

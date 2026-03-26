@@ -1,10 +1,11 @@
 '''
     Main function for the RAG lambda.
 '''
+from datetime import datetime
 import logging
+import json
 
 import psycopg2
-
 
 from connection import get_db_connection
 from retrieval import retrieve_relevant_chunks
@@ -16,35 +17,49 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def is_valid_event(event: dict) -> bool:
+def is_valid_event_body(event_body: dict) -> bool:
     """
     Returns True if the event is valid, False otherwise.
     """
-    if not isinstance(event, dict):
+
+    if not isinstance(event_body, dict):
+        logger.error("Event body is not a dict: %s", event_body)
         return False
 
-    if "queries" not in event:
+    if "queries" not in event_body:
+        logger.error(
+            "Event body does not contain 'queries' key: %s", event_body)
         return False
 
-    if not isinstance(event["queries"], list):
+    if not isinstance(event_body["queries"], list):
+        logger.error("Event body 'queries' key is not a list: %s", event_body)
         return False
 
-    for query in event["queries"]:
+    for query in event_body["queries"]:
         if not isinstance(query, str):
+            logger.error(
+                "Event body 'queries' list contains non-string: %s", query)
             return False
 
     return True
 
 
+def datetime_handler(obj):
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    return str(obj)
+
+
 def main(event: dict = None, context: dict = None) -> dict:
     '''
         Main function for the RAG lambda
-        - connects to Chroma
+        - connects to the database
         - retrieves relevant chunks for each query in the event
         - returns the retrieved chunks and their metadata
     '''
-    if is_valid_event(event) is False:
-        logger.warning("Invalid event format: %s", event)
+    event_body = json.loads(event.get("body", {}))
+    if is_valid_event_body(event_body) is False:
+        logger.error("Invalid event format: %s", event_body)
         return {
             "statusCode": 400,
             "body": """
@@ -56,17 +71,17 @@ def main(event: dict = None, context: dict = None) -> dict:
 
     # add possible params to the retrieval function
     params = {}
-    if "n_results" in event:
-        params["n_results"] = event["n_results"]
-    if "min_dist" in event:
-        params["min_dist"] = event["min_dist"]
+    if "top_k" in event_body:
+        params["top_k"] = event_body["top_k"]
+    if "max_dist" in event_body:
+        params["max_dist"] = event_body["max_dist"]
 
     # retrieve chunks for each query in the event
     try:
         with get_db_connection() as connection:
             chunks = [
                 retrieve_relevant_chunks(connection, query, **params)
-                for query in event.get("queries", [])
+                for query in event_body.get("queries", [])
             ]
     except psycopg2.Error as e:
         logger.error("Error retrieving chunks: %s", e)
@@ -76,8 +91,11 @@ def main(event: dict = None, context: dict = None) -> dict:
         }
 
     logger.info(
-        "Retrieved chunks for %d queries", len(event.get("queries", [])))
+        "Retrieved chunks for %d queries", len(event_body.get("queries", [])))
+
     return {
         "statusCode": 200,
-        "body": chunks
+        # Use the custom datetime handler to serialize datetime objects in the chunks
+        # Otherswise, the lambda will fail to serialize the response
+        "body": json.dumps(chunks, default=datetime_handler)
     }

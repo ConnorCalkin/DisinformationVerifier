@@ -4,6 +4,7 @@
 CREATE EXTENSION vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+DROP TABLE IF EXISTS documents;
 CREATE TABLE IF NOT EXISTS documents (
     document_id uuid DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,

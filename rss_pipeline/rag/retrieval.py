@@ -1,11 +1,12 @@
 from psycopg2.extensions import connection
-from psycopg2.extras import DictCursor
+from psycopg2.extras import RealDictCursor
 from embedding import get_embedding
 
 
 def retrieve_relevant_chunks(connection: connection,
                              query: str,
-                             top_k: int = 5) -> list[dict]:
+                             top_k: int = 5,
+                             max_dist: float = 1) -> list[dict]:
     """
     Retrieves the most relevant chunks for a given query.
     """
@@ -14,15 +15,16 @@ def retrieve_relevant_chunks(connection: connection,
     embedding = get_embedding(query)
 
     # Query the database for the most relevant chunks
-    cursor = connection.cursor(cursor_factory=DictCursor)
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
     cursor.execute(
         """
-        SELECT title, content, source_url, created_at, (embedding <=> %s::vector) AS distance
+        SELECT title, content, source_url, published_at, (embedding <=> %s::vector) AS distance
         FROM documents
+        WHERE (embedding <=> %s::vector) <= %s
         ORDER BY distance ASC
         LIMIT %s;
         """,
-        (embedding, top_k)
+        (embedding, embedding, max_dist, top_k)
     )
 
     results = cursor.fetchall()

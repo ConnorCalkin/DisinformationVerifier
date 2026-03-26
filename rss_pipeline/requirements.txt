@@ -1,0 +1,6 @@
+psycopg2-binary
+openai
+boto3
+trafilatura
+feedparser
+bs4
