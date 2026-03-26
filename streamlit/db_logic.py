@@ -91,7 +91,7 @@ def fetch_input_details(input_id: int) -> dict:
     return run_query(query, (input_id,))
 
 
-def metrics_input_query(confidence: float, accuracy: float, metrics_summary: str) -> str:
+def metrics_table_insert_execution(confidence: float, accuracy: float, metrics_summary: str) -> str:
     """ Helper function to generate the SQL query for inserting metrics. """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -102,7 +102,7 @@ def metrics_input_query(confidence: float, accuracy: float, metrics_summary: str
             metrics_id = cur.fetchone()['metrics_id']
     return metrics_id
 
-def source_type_query(source_type_name: str) -> str:
+def source_type_table_insert_execution(source_type_name: str) -> str:
     """ Helper function to generate the SQL query for inserting source type. """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -115,7 +115,7 @@ def source_type_query(source_type_name: str) -> str:
             source_type_id = cur.fetchone()['source_type_id']
     return source_type_id
 
-def input_query(input_text: str, input_summary: str, source_type_id: int, metrics_id: int) -> str:
+def input_table_insert_execution(input_text: str, input_summary: str, source_type_id: int, metrics_id: int) -> str:
     """ Helper function to generate the SQL query for inserting input. """
     created_at = datetime.now()
     with get_db_connection() as conn:
@@ -127,7 +127,7 @@ def input_query(input_text: str, input_summary: str, source_type_id: int, metric
             input_id = cur.fetchone()['input_id']
     return input_id
 
-def claim_query(input_id: int, claim_text: str, rating: str, evidence: str) -> None:
+def claim_table_insert_execution(input_id: int, claim_text: str, rating: str, evidence: str) -> None:
     """ Helper function to generate the SQL query for inserting claims. """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -151,16 +151,16 @@ def archive_user_input(input_text: str,
     conn = get_db_connection()
     try:
         # Insert metrics to retrieve metrics_id
-        metrics_id = metrics_input_query(confidence, accuracy, metrics_summary)
+        metrics_id = metrics_table_insert_execution(confidence, accuracy, metrics_summary)
         # Insert source type to retrieve source_type_id
-        source_type_id = source_type_query(source_type_name)
+        source_type_id = source_type_table_insert_execution(source_type_name)
         # Insert input and retrieve input_id
-        input_id = input_query(input_text, input_summary,
-                               source_type_id, metrics_id)
+        input_id = input_table_insert_execution(input_text, input_summary,
+                                                source_type_id, metrics_id)
         # Insert claims
         for claim in claims:
-            claim_query(input_id, claim['claim_text'],
-                        claim['rating'], claim['evidence'])
+            claim_table_insert_execution(input_id, claim['claim_text'],
+                                         claim['rating'], claim['evidence'])
         conn.commit()
         logging.info(
             f"Successfully archived user input with input_id: {input_id}")
