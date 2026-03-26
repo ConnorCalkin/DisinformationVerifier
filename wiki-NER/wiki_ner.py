@@ -181,7 +181,7 @@ async def fetch_article_bodies(titles: list[str], claims: list[str]) -> list[dic
     return await asyncio.gather(*tasks)
 
 
-def lambda_handler(event, context):
+def lambda_handler(event: dict, context: dict) -> dict:
     """ Coordinates the flow from Claim Input -> Search Terms -> Wiki Data Retrieval. """
 
     logging.info(f"Lambda execution started", extra={"event": event})
