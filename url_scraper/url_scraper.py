@@ -18,10 +18,6 @@ def validate_url(url: str) -> bool:
     if not validators.url(url):
         return False
 
-    # Explicitly check for web protocols only
-    if not url.startswith(("http://", "https://")):
-        return False
-
     # Fact-checking specific check: Ensure it has a scheme and netloc (e.g. example.com)
     parsed = urlparse(url)
     if not all([parsed.scheme, parsed.netloc]):
