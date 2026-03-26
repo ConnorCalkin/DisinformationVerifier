@@ -1,8 +1,9 @@
 import logging
-from openai import OpenAI
 import boto3
 import json
 from os import environ
+
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
