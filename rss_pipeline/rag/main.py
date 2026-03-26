@@ -4,8 +4,8 @@
 from datetime import datetime
 import logging
 import json
-import psycopg2
 
+import psycopg2
 
 from connection import get_db_connection
 from retrieval import retrieve_relevant_chunks
@@ -17,20 +17,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def is_valid_event(event: dict) -> bool:
+def is_valid_event_body(event_body: dict) -> bool:
     """
     Returns True if the event is valid, False otherwise.
     """
-    if not isinstance(event, dict):
+
+    if not isinstance(event_body, dict):
         return False
 
-    if "queries" not in event:
+    if "queries" not in event_body:
         return False
 
-    if not isinstance(event["queries"], list):
+    if not isinstance(event_body["queries"], list):
         return False
 
-    for query in event["queries"]:
+    for query in event_body["queries"]:
         if not isinstance(query, str):
             return False
 
@@ -50,8 +51,9 @@ def main(event: dict = None, context: dict = None) -> dict:
         - retrieves relevant chunks for each query in the event
         - returns the retrieved chunks and their metadata
     '''
-    if is_valid_event(event) is False:
-        logger.warning("Invalid event format: %s", event)
+    event_body = event.get("body", {})
+    if is_valid_event_body(event_body) is False:
+        logger.warning("Invalid event format: %s", event_body)
         return {
             "statusCode": 400,
             "body": """
@@ -63,17 +65,17 @@ def main(event: dict = None, context: dict = None) -> dict:
 
     # add possible params to the retrieval function
     params = {}
-    if "top_k" in event:
-        params["top_k"] = event["top_k"]
-    if "max_dist" in event:
-        params["max_dist"] = event["max_dist"]
+    if "top_k" in event_body:
+        params["top_k"] = event_body["top_k"]
+    if "max_dist" in event_body:
+        params["max_dist"] = event_body["max_dist"]
 
     # retrieve chunks for each query in the event
     try:
         with get_db_connection() as connection:
             chunks = [
                 retrieve_relevant_chunks(connection, query, **params)
-                for query in event.get("queries", [])
+                for query in event_body.get("queries", [])
             ]
     except psycopg2.Error as e:
         logger.error("Error retrieving chunks: %s", e)
@@ -83,7 +85,7 @@ def main(event: dict = None, context: dict = None) -> dict:
         }
 
     logger.info(
-        "Retrieved chunks for %d queries", len(event.get("queries", [])))
+        "Retrieved chunks for %d queries", len(event_body.get("queries", [])))
 
     return {
         "statusCode": 200,
