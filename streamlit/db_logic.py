@@ -17,11 +17,11 @@ def get_db_connection() -> connection:
     """ Establishes and returns a connection to the rds database. """
     try:
         conn = connect(
-            host="c22-dv-vector-store.c57vkec7dkkx.eu-west-2.rds.amazonaws.com",
-            port=5432,
-            dbname="user_history",
-            user="postgres",
-            password="placeholder-for-rds-password",
+            host=environ.get("RDS_HOST"),
+            port=environ.get("RDS_PORT"),
+            dbname=environ.get("RDS_DB"),
+            user=environ.get("RDS_USER"),
+            password=environ.get("RDS_PASSWORD"),
             cursor_factory=RealDictCursor
         )
         logging.info("Database connection established successfully.")
