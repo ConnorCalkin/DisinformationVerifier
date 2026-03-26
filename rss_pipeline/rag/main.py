@@ -1,8 +1,9 @@
 '''
     Main function for the RAG lambda.
 '''
+from datetime import datetime
 import logging
-
+import json
 import psycopg2
 
 
@@ -36,6 +37,12 @@ def is_valid_event(event: dict) -> bool:
     return True
 
 
+def datetime_handler(obj):
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    return str(obj)
+
+
 def main(event: dict = None, context: dict = None) -> dict:
     '''
         Main function for the RAG lambda
@@ -56,10 +63,10 @@ def main(event: dict = None, context: dict = None) -> dict:
 
     # add possible params to the retrieval function
     params = {}
-    if "n_results" in event:
-        params["n_results"] = event["n_results"]
-    if "min_dist" in event:
-        params["min_dist"] = event["min_dist"]
+    if "top_k" in event:
+        params["top_k"] = event["top_k"]
+    if "max_dist" in event:
+        params["max_dist"] = event["max_dist"]
 
     # retrieve chunks for each query in the event
     try:
@@ -77,7 +84,10 @@ def main(event: dict = None, context: dict = None) -> dict:
 
     logger.info(
         "Retrieved chunks for %d queries", len(event.get("queries", [])))
+
     return {
         "statusCode": 200,
-        "body": chunks
+        # Use the custom datetime handler to serialize datetime objects in the chunks
+        # Otherswise, the lambda will fail to serialize the response
+        "body": json.dumps(chunks, default=datetime_handler)
     }

@@ -35,6 +35,5 @@ def add_chunks_to_rds(conn,
                 )
             )
         conn.commit()
-
     logger.info(
         "Stored %d chunks for article %s in RDS", len(chunks), metadata['article_id'])

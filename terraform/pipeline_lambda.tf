@@ -1,30 +1,26 @@
-data "aws_ecr_repository" "rag_repo" {
-  name = "c22-dv-rag-image"
+data "aws_ecr_repository" "pipeline_repo" {
+    name = "c22-dv-pipeline-image"
 }
 
-data "aws_secretsmanager_secret_version" "credentials_val" {
-    secret_id = aws_secretsmanager_secret.credentials.id
-}
-
-resource "aws_lambda_function_url" "rag_lambda_url" {
-  function_name      = aws_lambda_function.rag_lambda.function_name
+resource "aws_lambda_function_url" "pipeline_lambda_url" {
+  function_name      = aws_lambda_function.pipeline_lambda.function_name
   authorization_type = "NONE"
 }
 
-resource "aws_lambda_permission" "allow_public_access_rag_lambda" {
+resource "aws_lambda_permission" "allow_public_access_pipeline_lambda" {
   statement_id           = "AllowPublicAccess"
   action                 = "lambda:InvokeFunctionUrl"
-  function_name          = aws_lambda_function.rag_lambda.function_name
+  function_name          = aws_lambda_function.pipeline_lambda.function_name
   principal              = "*"
   function_url_auth_type = "NONE"
 }
 
-resource "aws_lambda_function" "rag_lambda" {
-    function_name = "c22-dv-rag-lambda"
+resource "aws_lambda_function" "pipeline_lambda" {
+    function_name = "c22-dv-pipeline-lambda"
     role          = aws_iam_role.rds_connect_lambda_role.arn
 
     package_type = "Image"
-    image_uri    = "${data.aws_ecr_repository.rag_repo.repository_url}:latest"
+    image_uri    = "${data.aws_ecr_repository.pipeline_repo.repository_url}:latest"
 
     timeout      = 60
     memory_size  = 512
