@@ -265,7 +265,7 @@ def test_validate_inputs_for_prompt():
         validate_inputs_for_prompt([Claim(claim_text="claim 1")], ["evidence 1"], "not a list")
 
 
-def test_convert_llm_response_to_dict():
+def test_convert_llm_response_to_dict_1():
 
     llm_response = """
 |'The sky is a really light blue.','SUPPORTED','The sources indicate the sky appears blue due to atmospheric scattering and is described as blue during the day.', Sources: Wiki, https://example.com/sky
@@ -288,6 +288,24 @@ def test_convert_llm_response_to_dict():
             "sources": "None"
         }
     ]
+
+
+def test_convert_llm_response_to_dict_2():
+
+    llm_response = """
+|'Donald trump is 30','CONTRADICTED','The provided Wikipedia article states Donald Trump was born in 1946 and was the oldest president at 78 during his second term, not 30.' Sources: Wiki
+"""
+
+    result = convert_llm_response_to_dict(llm_response)
+
+    assert result == [
+        {
+            "claim": "Donald trump is 30",
+            "rating": "CONTRADICTED",
+            "explanation": "The provided Wikipedia article states Donald Trump was born in 1946 and was the oldest president at 78 during his second term, not 30.",
+            "sources": "Wiki"
+        }]
+
 
 def test_validate_response_format_correct_format_multiple_claims():
     """Tests that the validate_response_format function does not raise an error when given a correctly formatted response."""
@@ -339,3 +357,4 @@ the day, aligning with the claim. Sources: Wiki, https://example.com/sky"""
 
     with pytest.raises(ValueError):
         validate_response_format(llm_response)
+    

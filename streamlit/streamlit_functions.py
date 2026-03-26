@@ -187,7 +187,8 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
     """Sends a POST request to a lambda URL
     and returns the response as a dict."""
 
-    logging.info(f"Sending POST request to lambda at {lambda_url} with payload: {payload}")
+    logging.info(
+        f"Sending POST request to lambda at {lambda_url} with payload: {payload}")
 
     payload["queries"] = payload["claims"]
 
@@ -197,7 +198,8 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
     )
 
     if response.status_code != 200:
-        logging.error(f"Lambda request failed with status code {response.status_code}: {response.text}")
+        logging.error(
+            f"Lambda request failed with status code {response.status_code}: {response.text}")
         raise RuntimeError(f"")
 
     logging.info(f"Received response from lambda: {response.json()}")
@@ -232,11 +234,12 @@ def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict
     """Sends claims to the RAG lambda and
     returns relevant facts with metadata."""
 
-    claims = [claim.claim_text for claim in claims]  # convert Claim objects to strings
+    # convert Claim objects to strings
+    claims = [claim.claim_text for claim in claims]
 
     payload = {"claims": claims}
     response = post_to_lambda(lambda_url, payload)
-    
+
     # validate_response_status(
     #     response, "statusCode"
     # )
@@ -248,18 +251,19 @@ def send_claims_to_wiki_lambda(claims: list[Claim], lambda_url: str) -> list[dic
     """Sends claims to the Wikipedia lambda and
     returns Wikipedia evidence for each claim."""
 
-    claims = [claim.claim_text for claim in claims]  # convert Claim objects to strings
+    # convert Claim objects to strings
+    claims = [claim.claim_text for claim in claims]
 
     payload = {"claims": claims}
-    
+
     response = post_to_lambda(lambda_url, payload)
     # validate_response_status(
     #     response, "statusCode"
     # )
-    return response["body"]["wiki_context"]
+    return response["wiki_context"]
 
 
-def rate_claims_via_llm(claims: list[Claim], wiki_context: list[str], rag_context: list[dict]) -> str:
+def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict]) -> str:
     """
     This functions sends the claims to openai along with context from
     wiki and RAG. 
@@ -279,6 +283,8 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[str], rag_contex
 
     validate_response_format(response)
 
+    logging.info(f"LLM returned response: {response}")
+
     return response
 
 
@@ -289,31 +295,33 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
     Each dict has: claim, rating,
     explanation, sources.
     """
-    pipe_line_pattern = re.compile(  # pattern to ascertain information
-        r"\|'([^']+)','([^']+)','([^']+)',\s*Sources:\s*(.+)"
+    entry_pattern = re.compile(
+        r"\|'([^']+)','([^']+)','([\s\S]*?)',?\s*Sources:\s*([^\n]+)",
+        re.DOTALL
     )
 
     result = []
-    for line in llm_response.splitlines():
-        match = pipe_line_pattern.search(line)
-        if not match:
-            continue
-
+    for match in entry_pattern.finditer(llm_response):
+        normalised_explanation = (
+            match.group(3).replace('\n', ' ').strip()
+        )
         claim_dict = {
             "claim": match.group(1),
             "rating": match.group(2),
-            "explanation": match.group(3),
+            "explanation": normalised_explanation,
             "sources": match.group(4).strip()
         }
         result.append(claim_dict)
+    
+    logging.info(f"Claims and ratings obtained: {result}")
 
     return result
 
 
 def create_llm_prompt(
     claims: list[Claim],
-    wiki_context: list[str],
-    rag_context: list[dict]
+    wiki_context: list[dict],
+    rag_context: list[list[dict]]
 ) -> str:
     """Creates a prompt for the LLM based on
     claims, wiki context and RAG context.
@@ -328,15 +336,21 @@ def create_llm_prompt(
     )
 
     wiki_strings = "\n".join(
-        [f"[{e}]" for e in wiki_context]
-    )
-
-    rag_strings = "\n".join(
         [
-            f"[{r['content']}] (Source: {r['source_url']}, Date: {r['created_at']})"
-            for r in rag_context
+            f"[{r['relevant_sections']}] (Source: {r['url']})"
+            for r in wiki_context
         ]
     )
+
+    rag_strings = ""
+    for rag_entries in rag_context:
+        rag_strings += "\n".join(
+
+            [
+                f"[{r['content']}] (Source: {r['source_url']}, Date: {r['published_at']})"
+                for r in rag_entries
+            ]
+        )
 
     prompt = f"""Evaluate the following claims based on
                 the provided Wikipedia evidence and RAG facts. 
@@ -368,17 +382,17 @@ def create_llm_prompt(
     return prompt
 
 
-def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[str], rag_context: list[dict]) -> None:
+def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict]) -> None:
     """Validates the inputs for the LLM prompt. Raises ValueError if any of the inputs are invalid."""
 
     if not isinstance(claims, list) or not all(isinstance(c, Claim) for c in claims):
         raise ValueError("Claims must be a list of Claim objects.")
 
-    if not isinstance(wiki_context, list) or not all(isinstance(w, str) for w in wiki_context):
+    if not isinstance(wiki_context, list) or not all(isinstance(w, dict) for w in wiki_context):
         raise ValueError("Wiki context must be a list of strings.")
 
-    if not isinstance(rag_context, list) or not all(isinstance(r, dict) for r in rag_context):
-        raise ValueError("RAG context must be a list of dictionaries.")
+    if not isinstance(rag_context, list) or not all(isinstance(r, list) for r in rag_context):
+        raise ValueError("RAG context must be a list of lists.")
 
     if claims == []:
         raise ValueError("Claims list is empty.")

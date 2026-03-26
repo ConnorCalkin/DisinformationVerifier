@@ -42,7 +42,7 @@ def display_claim_and_rating(claim: dict, box_design) -> None:
 
     with ratings:
         st.markdown(f"**Rating:** {claim['rating']}")
-        st.markdown(f"**Evidence:** {claim['evidence']}")
+        st.markdown(f"**Evidence:** {claim['explanation']}")
 
 
 def render_and_parse_input_boxes() -> tuple[str, str, str, str]:
@@ -193,11 +193,13 @@ def render_claims(claims: list[dict]) -> None:
     box_designs = {  # Different colour boxes for different ratings.
         'Supported': lambda x: st.success(x),
         'Misleading': lambda x: st.warning(x),
-        'Contradicted': lambda x: st.error(x),
+        'CONTRADICTED': lambda x: st.error(x),
         'Unsure': lambda x: st.info(x)
     }
 
     for claim in claims:
+        print(claim, "assuming this is empty")
+
         box_design = box_designs.get(claim['rating'])
         with st.container(border=True):
             display_claim_and_rating(claim, box_design)
@@ -237,9 +239,13 @@ def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict
             st.error(f"An error occurred in Wiki servers: {e}")
             return None
 
-        rated_claims = rate_claims_via_llm(unrated_claims, rag_context, wiki_context)
+        rated_claims = rate_claims_via_llm(unrated_claims, wiki_context, rag_context)
 
         rated_claims = convert_llm_response_to_dict(rated_claims)
+
+        print(rated_claims, "claims and ratings after conversion to dict")
+
+        
 
         return rated_claims
 
@@ -254,7 +260,9 @@ def verify_button(user_input: str, format: str) -> list[dict] | None:
         return None
 
     if button_clicked:
-        return get_claims_and_ratings_from_input(user_input, format)
+        claims_and_ratings = get_claims_and_ratings_from_input(user_input, format)
+        print(claims_and_ratings)
+        return claims_and_ratings
 
     return None
 
@@ -307,6 +315,7 @@ def render_input_screen(screen_placeholder) -> list[dict]:
 
         try:    
             claims_and_ratings = verify_button(user_input, format)
+            print(claims_and_ratings, "claims and ratings in render input screen")
         except RuntimeError as e:
             st.error(f"An error occurred during verification: {e}")
             return None
@@ -340,6 +349,8 @@ if __name__ == "__main__":
     placeholder = st.empty()
 
     claims_and_ratings = render_input_screen(placeholder)
+
+    print(claims_and_ratings, "after rendering input screen")
 
     if claims_and_ratings is not None:
         render_results_screen(claims_and_ratings, placeholder)
