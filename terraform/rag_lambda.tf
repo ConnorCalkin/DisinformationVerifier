@@ -2,6 +2,11 @@ data "aws_ecr_repository" "rag_repo" {
   name = "c22-dv-rag-image"
 }
 
+data "aws_ecr_image" "rag_image" {
+    repository_name = data.aws_ecr_repository.rag_repo.name
+    image_tag = "latest"
+}
+
 data "aws_secretsmanager_secret_version" "credentials_val" {
     secret_id = aws_secretsmanager_secret.credentials.id
 }
@@ -24,7 +29,7 @@ resource "aws_lambda_function" "rag_lambda" {
     role          = aws_iam_role.rds_connect_lambda_role.arn
 
     package_type = "Image"
-    image_uri    = "${data.aws_ecr_repository.rag_repo.repository_url}@${data.aws_ecr_image.rag_lambda_image.id}"
+    image_uri    = "${data.aws_ecr_repository.rag_repo.repository_url}@${data.aws_ecr_image.rag_image.id}"
 
     timeout      = 60
     memory_size  = 512
