@@ -235,6 +235,8 @@ def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], l
     
     try:
         rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
+        logging.info("Successfully retrieved context from RAG: example snippet: " + str(rag_context[0][0]) + "...")
+
     except RuntimeError as e:
         st.error(f"An error occurred in RAG servers: {e}")
         return None
@@ -242,6 +244,7 @@ def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], l
     logging.info("Connecting to Wikipedia")
     try:
         wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
+        logging.info("Successfully retrieved context from Wikipedia: example snippet: " + str(wiki_context[0]) + "...")
     except RuntimeError as e:
         st.error(f"An error occurred in Wikipedia servers: {e}")
         return None

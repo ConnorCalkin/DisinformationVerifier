@@ -191,7 +191,7 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
     and returns the response as a dict."""
 
     logging.info(
-        f"Sending POST request to lambda at {lambda_url} with payload: {payload}")
+        f"Sending POST request to lambda with payload: {payload}")
 
     if "claims" in payload:
         payload["queries"] = payload["claims"]
@@ -206,7 +206,7 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
             f"Lambda request failed with status code {response.status_code}: {response.text}")
         raise RuntimeError(f"{response.text}")
 
-    logging.info(f"Received response from lambda: {response.json()}")
+    logging.info(f"Received response from lambda: ")
 
     return response.json()
 
@@ -267,7 +267,7 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
 
     # validate_response_format(response)
 
-    logging.info(f"LLM returned response: {response}")
+    logging.info(f"LLM returned response: {response[:50]} ...")
 
     return response
 
@@ -298,7 +298,7 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
 
         result.append(claim_dict)
 
-    logging.info(f"Claims and ratings obtained: {result}")
+    logging.info(f"Claims and ratings obtained: {result[:3]}")
 
     return result
 
