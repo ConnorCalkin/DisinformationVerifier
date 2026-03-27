@@ -7,8 +7,32 @@ When a user inputs an article, url or claim. This script will extract claims fro
 These claims are then sent to multiple lambda functions via lambda urls.
 """
 
+import os
 import plotly.graph_objects as go
+from dotenv import load_dotenv
+import logging
+from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
+                                 get_claims_from_text,
+                                 send_claims_to_rag_lambda,
+                                 send_claims_to_wiki_lambda, rate_claims_via_llm,
+                                 setup_logging,
+                                 Claim)
+
+
+
 import streamlit as st
+
+
+
+load_dotenv()
+
+
+WIKI_URL = os.getenv("WIKI_URL")
+RAG_URL = os.getenv("RAG_URL")
+# TODO: Add lambda url for web scraping function once it's deployed.
+SCRAPE_URL = os.getenv("SCRAPE_URL")
+
+setup_logging()
 
 # TODO: import function that retrieves claims from a text body.
 
@@ -31,7 +55,7 @@ def display_claim_and_rating(claim: dict, box_design) -> None:
 
     with ratings:
         st.markdown(f"**Rating:** {claim['rating']}")
-        st.markdown(f"**Evidence:** {claim['evidence']}")
+        st.markdown(f"**Evidence:** {claim['explanation']}")
 
 
 def render_and_parse_input_boxes() -> tuple[str, str, str, str]:
@@ -180,20 +204,24 @@ def render_claims(claims: list[dict]) -> None:
     """Display claims and their ratings in the Streamlit app."""
 
     box_designs = {  # Different colour boxes for different ratings.
-        'Supported': lambda x: st.success(x),
-        'Misleading': lambda x: st.warning(x),
-        'Contradicted': lambda x: st.error(x),
-        'Unsure': lambda x: st.info(x)
+        'SUPPORTED': lambda x: st.success(x),
+        'MISLEADING': lambda x: st.warning(x),
+        'CONTRADICTED': lambda x: st.error(x),
+        'UNSURE': lambda x: st.info(x)
     }
 
     for claim in claims:
+        print(claim, "assuming this is empty")
+
         box_design = box_designs.get(claim['rating'])
         with st.container(border=True):
             display_claim_and_rating(claim, box_design)
 
 
-def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict]:
+def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict] | None:
     """
+    Main process function for RAG interface.
+
     Take user input and return claims and their ratings.
     pipeline will be different depending on the input format
 
@@ -201,38 +229,43 @@ def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict
 
     if user_input.strip() != "":
 
-        # TODO: Return list of claims using lambdas, will depend on 'format'.
+        if format == 'Claim':
+            unrated_claims = [Claim(claim_text=user_input)]
 
-        claims = [  # Placeholder claims for testing purposes
-            {
-                'claim': 'The Earth is flat.',
-                'rating': 'Contradicted',
-                'evidence': """Scientific consensus and overwhelming evidence (link)
-                from various fields of study confirm that the Earth is an oblate spheroid."""
-            },
-            {
-                'claim': 'The Earth is the center of the universe.',
-                'rating': 'Contradicted',
-                'evidence': """The heliocentric model, 
-                supported by extensive astronomical observations,
-                demonstrates that the Earth orbits the Sun, 
-                which is just one of billions of stars in the Milky Way galaxy."""
-            },
-            {
-                'claim': 'The Earth is approximately 4.5 billion years old.',
-                'rating': 'Supported',
-                'evidence': """Radiometric dating of rocks and meteorites, 
-                as well as the study of Earth's geological layers, 
-                consistently indicate that the Earth is around 4.5 billion years old."""
-            }
-        ]
-        # Placeholder to test the 'no claims extracted' warning message.
-        claims = []
+        if format == 'URL':
+            article_body = send_url_to_web_scraping_lambda(
+                user_input, SCRAPE_URL)
+            unrated_claims = get_claims_from_text(article_body)
 
-        return claims
+        if format == 'Article Text':
+
+            unrated_claims = get_claims_from_text(user_input)
+
+        logging.info("Connecting to RAG")
+        try:
+            rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
+        except RuntimeError as e:
+            st.error(f"An error occurred in RAG servers: {e}")
+            return None
+
+        logging.info("Connecting to Wiki")
+        try:
+            wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
+        except RuntimeError as e:
+            st.error(f"An error occurred in Wiki servers: {e}")
+            return None
+
+        rated_claims = rate_claims_via_llm(
+            unrated_claims, wiki_context, rag_context)
+
+        rated_claims = convert_llm_response_to_dict(rated_claims)
+
+        print(rated_claims, "claims and ratings after conversion to dict")
+
+        return rated_claims
 
 
-def verify_button(user_input: str, format: str) -> list[dict] | None:
+def verify_button(user_input: str, input_format: str) -> list[dict] | None:
     """Handle button click event and return claims with ratings."""
 
     button_clicked = st.button('Verify!')
@@ -242,7 +275,10 @@ def verify_button(user_input: str, format: str) -> list[dict] | None:
         return None
 
     if button_clicked:
-        return get_claims_and_ratings_from_input(user_input, format)
+        claims_and_ratings = get_claims_and_ratings_from_input(
+            user_input, input_format)
+        print(claims_and_ratings)
+        return claims_and_ratings
 
     return None
 
@@ -254,7 +290,8 @@ def render_trust_metrics(claims_and_rating: list[dict]) -> None:
     -Overall
     -Confidence"""
 
-    trust, correctness, overall, confidence = calculate_metrics(claims_and_rating)
+    trust, correctness, overall, confidence = calculate_metrics(
+        claims_and_rating)
 
     fields_col, values_col = st.columns([1, 3])
 
@@ -273,9 +310,9 @@ def render_trust_metrics(claims_and_rating: list[dict]) -> None:
 
     with values_col:
         render_metric_bars([trust,
-                          correctness,
-                          overall,
-                          confidence])
+                            correctness,
+                            overall,
+                            confidence])
 
 
 def calculate_metrics(claims_and_rating: list[dict]) -> tuple[float, float, float, float]:
@@ -291,9 +328,14 @@ def render_input_screen(screen_placeholder) -> list[dict]:
 
     with screen_placeholder.container(border=True):
 
-        user_input, format, _, _ = render_and_parse_input_boxes()
+        user_input, input_format, _, _ = render_and_parse_input_boxes()
 
-        claims_and_ratings = verify_button(user_input, format)
+        try:
+            claims_and_ratings = verify_button(user_input, input_format)
+            print(claims_and_ratings, "claims and ratings in render input screen")
+        except RuntimeError as e:
+            st.error(f"An error occurred during verification: {e}")
+            return None
 
         # TODO: Add a function to store claims, ratings, source_type and source in a database for future analysis.
 
@@ -322,6 +364,8 @@ if __name__ == "__main__":
     placeholder = st.empty()
 
     claims_and_ratings = render_input_screen(placeholder)
+
+    print(claims_and_ratings, "after rendering input screen")
 
     if claims_and_ratings is not None:
         render_results_screen(claims_and_ratings, placeholder)

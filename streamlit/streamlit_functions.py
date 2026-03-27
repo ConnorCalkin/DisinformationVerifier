@@ -5,12 +5,13 @@ This script contain functions and classes that are used in the streamlit app
 import re
 import logging
 import os
+import requests
 from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DEVELOPER_ROLE_CONTENT = """# Role
+CLAIM_EXTRACTION_DEVELOPER_ROLE_CONTENT = """# Role
     Professional Fact-Checker (Executive Summary Mode
 
     # Task
@@ -33,9 +34,38 @@ DEVELOPER_ROLE_CONTENT = """# Role
     |Fish all live in the sea.
     |Traffic through the Strait of Hormuz remains limited."""
 
-DEVELOPER_ROLE = {
+CLAIM_EXTRACTION_DEVELOPER_ROLE = {
     "role": "developer",
-    "content": DEVELOPER_ROLE_CONTENT
+    "content": CLAIM_EXTRACTION_DEVELOPER_ROLE_CONTENT
+}
+
+CLAIM_RATING_DEVELOPER_ROLE_CONTENT = """# Role
+Professional Fact-Verification Engine (Simplified Mode)
+
+# Task
+Evaluate "Claims" against the provided "Factual Context" (Wiki or RAG chunks). 
+
+# Rating Definitions
+1. SUPPORTED: Context explicitly confirms the claim.
+2. CONTRADICTED: Context explicitly refutes the claim.
+3. MISLEADING: Claim is partially accurate but uses imprecise language, lacks nuance, or is not 100% supported by the text provided.
+4. UNSURE: Context lacks sufficient information.
+
+# Constraints
+1. Objectivity: Use ONLY provided context. No external knowledge.
+2. Tone: Be concise. One to two sentences max for the explanation.
+3. Formatting: Return ONLY the results. No intro/outro text. DO INCLUDE " ' " characters in the response
+to allow for clear parsing of the explanation and sources.
+
+
+# Output Format
+Return each result on a NEW LINE starting with a pipe character in this exact format:
+|'claim_made','rating','[Explanation sentence]', 'Sources: [Specify "Wiki" and/or the specific URL(s) provided in the RAG facts]' 
+"""
+
+CLAIM_RATING_DEVELOPER_ROLE = {
+    "role": "developer",
+    "content": CLAIM_RATING_DEVELOPER_ROLE_CONTENT
 }
 
 
@@ -80,7 +110,9 @@ def get_claims_from_text(text_input: str) -> list[Claim]:
 
     client = connect_to_openai()
 
-    claims_string = query_llm(text_input, client)
+    claims_string = query_llm(text_input, client,
+                              CLAIM_EXTRACTION_DEVELOPER_ROLE,
+                              "Successfully extracted claims from text input.")
 
     claims_list = convert_claims_string_to_list(claims_string)
 
@@ -99,16 +131,17 @@ def convert_claims_string_to_list(claims_string: str) -> list[Claim]:
     validate_claims_string(claims_string)
 
     claims_list = re.split(r'\n|\|', claims_string)
-    
+
     claims_list = [claim.strip()
-                   for claim in claims_list if claim.strip()!=""]
+                   for claim in claims_list if claim.strip() != ""]
 
     logging.info("Successfully converted claims string to list")
 
     return [Claim(claim_text=claim) for claim in claims_list]
 
 
-def query_llm(prompt: str, client: OpenAI) -> str:
+def query_llm(prompt: str, client: OpenAI, developer_role: dict,
+              succces_log: str) -> str:
     """
     Queries the LLM for high-level objective claims returned as a 
     newline-separated string for maximum token efficiency.
@@ -120,7 +153,7 @@ def query_llm(prompt: str, client: OpenAI) -> str:
     try:
         response = client.chat.completions.create(
             model="gpt-5-nano",
-            messages=[DEVELOPER_ROLE,
+            messages=[developer_role,
                       {
                           "role": "user",
                           "content": prompt
@@ -130,7 +163,7 @@ def query_llm(prompt: str, client: OpenAI) -> str:
             reasoning_effort="low",
             max_completion_tokens=2000
         )
-        logging.info("Successfully queried LLM for claims extraction.")
+        logging.info(succces_log)
         return response.choices[0].message.content
 
     except Exception as e:
@@ -153,14 +186,268 @@ def validate_claims_string(claims_string: str) -> None:
             '|Claim 1\\n|Claim 2\\n|Claim 3'""")
 
 
+def post_to_lambda(lambda_url: str, payload: dict) -> dict:
+    """Sends a POST request to a lambda URL
+    and returns the response as a dict."""
+
+    logging.info(
+        f"Sending POST request to lambda at {lambda_url} with payload: {payload}")
+
+    if "claims" in payload:
+        payload["queries"] = payload["claims"]
+
+    response = requests.post(
+        lambda_url,
+        json=payload
+    )
+
+    if response.status_code != 200:
+        logging.error(
+            f"Lambda request failed with status code {response.status_code}: {response.text}")
+        raise RuntimeError(f"{response.text}")
+
+    logging.info(f"Received response from lambda: {response.json()}")
+
+    return response.json()
+
+
+# def validate_response_status(response: dict, status_key: str) -> None:
+#     """Raises RuntimeError if the response
+#     status code is not 200."""
+
+#     if response.get(status_key) != 200:
+#         error_msg = response.get(
+#             "message",
+#             "Lambda request failed."
+#         )
+#         raise RuntimeError(error_msg)
+
+
+def send_url_to_web_scraping_lambda(user_url: str, lambda_url: str) -> str:
+    """Sends a URL to the web-scraping lambda
+    and returns the extracted text body."""
+    payload = {"url": user_url}
+    response = post_to_lambda(lambda_url, payload)
+
+    return response["message"]
+
+
+def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict]:
+    """Sends claims to the RAG lambda and
+    returns relevant facts with metadata."""
+
+    # convert Claim objects to strings
+    claims = [claim.claim_text for claim in claims]
+
+    payload = {"claims": claims}
+    response = post_to_lambda(lambda_url, payload)
+
+
+    return response
+
+
+def send_claims_to_wiki_lambda(claims: list[Claim], lambda_url: str) -> list[dict]:
+    """Sends claims to the Wikipedia lambda and
+    returns Wikipedia evidence for each claim."""
+
+    # convert Claim objects to strings
+    claims = [claim.claim_text for claim in claims]
+
+    payload = {"claims": claims}
+
+    response = post_to_lambda(lambda_url, payload)
+    # validate_response_status(
+    #     response, "statusCode"
+    # )
+    return response["wiki_context"]
+
+
+def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict]) -> str:
+    """
+    This functions sends the claims to openai along with context from
+    wiki and RAG. 
+    Openai will return categorical ratings for each claim along with a brief explanation for the rating.
+    This will include the source that a claim was proved/disproved via.
+
+    Openai will also summarize the overall user input in a short description.
+    """
+
+    client = connect_to_openai()
+
+    prompt = create_llm_prompt(claims, wiki_context, rag_context)
+
+    response = query_llm(prompt, client,
+                         CLAIM_RATING_DEVELOPER_ROLE,
+                         "Successfully rated claims based on wiki and RAG context.")
+
+    # validate_response_format(response)
+
+    logging.info(f"LLM returned response: {response}")
+
+    return response
+
+
+def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
+    """Converts LLM rating output string to a
+    list of structured claim dicts.
+
+    Each dict has: claim, rating,
+    explanation, sources.
+    """
+
+    result = []
+
+    llm_response = llm_response.strip()
+    claims = re.split(r'\n\|', llm_response)
+
+    print(claims)
+
+    
+    for claim in claims:
+        info = re.split(r"',\s*'", claim)
+
+
+        claim_dict = {
+            "claim": info[0].replace("|", "").replace("'", ""),
+            "rating": info[1].upper().strip(),
+            "explanation": (info[2] + " " + info[3].replace("'","")).strip()
+        }
+
+        result.append(claim_dict)
+    
+    logging.info(f"Claims and ratings obtained: {result}")
+
+    return result
+
+
+def create_llm_prompt(
+    claims: list[Claim],
+    wiki_context: list[dict],
+    rag_context: list[list[dict]]
+) -> str:
+    """Creates a prompt for the LLM based on
+    claims, wiki context and RAG context.
+
+    RAG dict keys: title, content,
+    source_url, created_at"""
+
+    validate_inputs_for_prompt(claims, wiki_context, rag_context)
+
+    claims_strings = "\n".join(
+        [f"[{claim.claim_text}]" for claim in claims]
+    )
+
+    wiki_strings = "\n".join(
+        [
+            f"[{r['relevant_sections']}] (Source: {r['url']})"
+            for r in wiki_context
+        ]
+    )
+
+    rag_strings = ""
+    for rag_entries in rag_context:
+        rag_strings += "\n".join(
+
+            [
+                f"[{r['content']}] (Source: {r['source_url']}, Date: {r['published_at']})"
+                for r in rag_entries
+            ]
+        )
+
+    prompt = f"""Evaluate the following claims based on
+                the provided Wikipedia evidence and RAG facts. 
+                For each claim, assign a rating of 
+                SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE
+                based strictly on the provided evidence. 
+                Provide a brief explanation for each rating and, as a final entry, 
+                include all the sources of the evidence used, date and title if available.
+
+                Claims:
+                {claims_strings}
+                
+                Wikipedia Evidence:
+                {wiki_strings}
+                
+                RAG Facts:
+                {rag_strings}
+
+                ### Instructions:
+1. Assign one rating: SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE.
+2. A claim is MISLEADING if it is directionally correct but lacks the specific detail, nuance, or precision found in the sources.
+3. Provide a brief 1-2 sentence explanation.
+4. Identify if the information came from "Wiki", a URL, or multiple.
+5. DO NOT include any sources if the claim is rated UNSURE.
+6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
+
+### Output Format:
+|'claim_made','rating','[Explanation]'. 'Sources: [Wiki and/or the specific Source URL(s) or 'None' if UNSURE]' """
+
+    return prompt
+
+
+def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], rag_context: list[list]) -> None:
+    """Validates the inputs for the LLM prompt. Raises ValueError if any of the inputs are invalid."""
+
+    if not isinstance(claims, list) or not all(isinstance(c, Claim) for c in claims):
+        raise ValueError("Claims must be a list of Claim objects.")
+
+    if not isinstance(wiki_context, list) or not all(isinstance(w, dict) for w in wiki_context):
+        raise ValueError("Wiki context must be a list of strings.")
+
+    if not isinstance(rag_context, list) or not all(isinstance(r, list) for r in rag_context):
+        raise ValueError("RAG context must be a list of lists.")
+
+    if claims == []:
+        raise ValueError("Claims list is empty.")
+    if wiki_context == []:
+        raise ValueError("Wiki context list is empty.")
+    if rag_context == []:
+        raise ValueError("RAG context list is empty.")
+
+
+def validate_response_format(response: str) -> None:
+    """Validates the LLM rating response format.
+    Raises ValueError if pipe-prefixed entries
+    or valid uppercase ratings are absent.
+    """
+    pipe_entry_pattern = re.compile(
+        r"^\|", re.MULTILINE
+    )
+    valid_rating_pattern = re.compile(
+        r"\b(SUPPORTED|CONTRADICTED|MISLEADING|UNSURE)\b"
+    )
+
+    has_pipe_entry = pipe_entry_pattern.search(response)
+    has_valid_rating = valid_rating_pattern.search(response)
+
+    if not has_pipe_entry:
+        raise ValueError(
+            "Response missing pipe-prefixed claim entries."
+        )
+    if not has_valid_rating:
+        raise ValueError(
+            "Response missing a valid uppercase rating."
+        )
+
+
 if __name__ == "__main__":
     # Example usage
 
     setup_logging()
-    TEXT_INPUT = """
-Donald Trump is resigning as president"""
 
-    claims = get_claims_from_text(TEXT_INPUT)
+    example_claims = [Claim(claim_text="The sky is a really light blue."),
+                      Claim(claim_text="The grass is green.")]
 
-    for claim in claims:
-        print(claim.claim_text)
+    example_wiki_context = ["The sky appears blue due to the scattering"
+                            "of sunlight by the atmosphere."]
+
+    example_rag_context = [
+        {"content": "The sky is often described as blue during the day.",
+         "created_at": "2024-01-01",
+         "source_url": "https://example.com/sky"}
+    ]
+
+    print(
+        rate_claims_via_llm(
+            example_claims, example_wiki_context, example_rag_context)
+    )
