@@ -54,11 +54,14 @@ Evaluate "Claims" against the provided "Factual Context" (Wiki or RAG chunks).
 # Constraints
 1. Objectivity: Use ONLY provided context. No external knowledge.
 2. Tone: Be concise. One to two sentences max for the explanation.
-3. Formatting: Return ONLY the results. No intro/outro text.
+3. Formatting: Return ONLY the results. No intro/outro text. DO INCLUDE " ' " characters in the response
+to allow for clear parsing of the explanation and sources.
+
 
 # Output Format
 Return each result on a NEW LINE starting with a pipe character in this exact format:
-|'claim_made','rating','[Explanation sentence]', 'Sources: [Specify "Wiki" and/or the specific URL(s) provided in the RAG facts]' """
+|'claim_made','rating','[Explanation sentence]', 'Sources: [Specify "Wiki" and/or the specific URL(s) provided in the RAG facts]' 
+"""
 
 CLAIM_RATING_DEVELOPER_ROLE = {
     "role": "developer",
@@ -190,7 +193,8 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
     logging.info(
         f"Sending POST request to lambda at {lambda_url} with payload: {payload}")
 
-    payload["queries"] = payload["claims"]
+    if "claims" in payload:
+        payload["queries"] = payload["claims"]
 
     response = requests.post(
         lambda_url,
@@ -224,9 +228,7 @@ def send_url_to_web_scraping_lambda(user_url: str, lambda_url: str) -> str:
     and returns the extracted text body."""
     payload = {"url": user_url}
     response = post_to_lambda(lambda_url, payload)
-    # validate_response_status(
-    #     response, "status_code"
-    # )
+
     return response["message"]
 
 
@@ -240,9 +242,6 @@ def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict
     payload = {"claims": claims}
     response = post_to_lambda(lambda_url, payload)
 
-    # validate_response_status(
-    #     response, "statusCode"
-    # )
 
     return response
 
@@ -298,16 +297,20 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
 
     result = []
 
+    llm_response = llm_response.strip()
     claims = re.split(r'\n\|', llm_response)
+
+    print(claims)
 
     
     for claim in claims:
         info = re.split(r"',\s*'", claim)
 
+
         claim_dict = {
             "claim": info[0].replace("|", "").replace("'", ""),
-            "rating": info[1],
-            "explanation": info[2]
+            "rating": info[1].upper().strip(),
+            "explanation": (info[2] + " " + info[3].replace("'","")).strip()
         }
 
         result.append(claim_dict)
@@ -374,14 +377,15 @@ def create_llm_prompt(
 3. Provide a brief 1-2 sentence explanation.
 4. Identify if the information came from "Wiki", a URL, or multiple.
 5. DO NOT include any sources if the claim is rated UNSURE.
+6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
 
 ### Output Format:
-|'claim_made','rating','[Explanation]'. Sources: [Wiki and/or the specific Source URL(s) or 'None' if UNSURE]"""
+|'claim_made','rating','[Explanation]'. 'Sources: [Wiki and/or the specific Source URL(s) or 'None' if UNSURE]' """
 
     return prompt
 
 
-def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict]) -> None:
+def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], rag_context: list[list]) -> None:
     """Validates the inputs for the LLM prompt. Raises ValueError if any of the inputs are invalid."""
 
     if not isinstance(claims, list) or not all(isinstance(c, Claim) for c in claims):

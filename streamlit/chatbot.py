@@ -7,20 +7,30 @@ When a user inputs an article, url or claim. This script will extract claims fro
 These claims are then sent to multiple lambda functions via lambda urls.
 """
 
+import os
 import plotly.graph_objects as go
-import streamlit as st
+from dotenv import load_dotenv
 import logging
-
 from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
-                                 get_claims_from_text, 
+                                 get_claims_from_text,
                                  send_claims_to_rag_lambda,
                                  send_claims_to_wiki_lambda, rate_claims_via_llm,
                                  setup_logging,
                                  Claim)
 
 
-WIKI_URL = "https://sw72iuibpt52rj6mzvkvhntn540gzakk.lambda-url.eu-west-2.on.aws/"
-RAG_URL = "https://uhpsokled63gc6jef6gqapj5ou0blbaf.lambda-url.eu-west-2.on.aws/"
+
+import streamlit as st
+
+
+
+load_dotenv()
+
+
+WIKI_URL = os.getenv("WIKI_URL")
+RAG_URL = os.getenv("RAG_URL")
+# TODO: Add lambda url for web scraping function once it's deployed.
+SCRAPE_URL = os.getenv("SCRAPE_URL")
 
 setup_logging()
 
@@ -223,21 +233,21 @@ def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict
             unrated_claims = [Claim(claim_text=user_input)]
 
         if format == 'URL':
-            article_body = send_url_to_web_scraping_lambda(user_input)
+            article_body = send_url_to_web_scraping_lambda(
+                user_input, SCRAPE_URL)
             unrated_claims = get_claims_from_text(article_body)
-        
+
         if format == 'Article Text':
 
             unrated_claims = get_claims_from_text(user_input)
-        
-       
+
         logging.info("Connecting to RAG")
         try:
             rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
         except RuntimeError as e:
             st.error(f"An error occurred in RAG servers: {e}")
             return None
-        
+
         logging.info("Connecting to Wiki")
         try:
             wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
@@ -245,18 +255,17 @@ def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict
             st.error(f"An error occurred in Wiki servers: {e}")
             return None
 
-        rated_claims = rate_claims_via_llm(unrated_claims, wiki_context, rag_context)
+        rated_claims = rate_claims_via_llm(
+            unrated_claims, wiki_context, rag_context)
 
         rated_claims = convert_llm_response_to_dict(rated_claims)
 
         print(rated_claims, "claims and ratings after conversion to dict")
 
-        
-
         return rated_claims
 
 
-def verify_button(user_input: str, format: str) -> list[dict] | None:
+def verify_button(user_input: str, input_format: str) -> list[dict] | None:
     """Handle button click event and return claims with ratings."""
 
     button_clicked = st.button('Verify!')
@@ -266,7 +275,8 @@ def verify_button(user_input: str, format: str) -> list[dict] | None:
         return None
 
     if button_clicked:
-        claims_and_ratings = get_claims_and_ratings_from_input(user_input, format)
+        claims_and_ratings = get_claims_and_ratings_from_input(
+            user_input, input_format)
         print(claims_and_ratings)
         return claims_and_ratings
 
@@ -280,7 +290,8 @@ def render_trust_metrics(claims_and_rating: list[dict]) -> None:
     -Overall
     -Confidence"""
 
-    trust, correctness, overall, confidence = calculate_metrics(claims_and_rating)
+    trust, correctness, overall, confidence = calculate_metrics(
+        claims_and_rating)
 
     fields_col, values_col = st.columns([1, 3])
 
@@ -299,9 +310,9 @@ def render_trust_metrics(claims_and_rating: list[dict]) -> None:
 
     with values_col:
         render_metric_bars([trust,
-                          correctness,
-                          overall,
-                          confidence])
+                            correctness,
+                            overall,
+                            confidence])
 
 
 def calculate_metrics(claims_and_rating: list[dict]) -> tuple[float, float, float, float]:
@@ -317,10 +328,10 @@ def render_input_screen(screen_placeholder) -> list[dict]:
 
     with screen_placeholder.container(border=True):
 
-        user_input, format, _, _ = render_and_parse_input_boxes()
+        user_input, input_format, _, _ = render_and_parse_input_boxes()
 
-        try:    
-            claims_and_ratings = verify_button(user_input, format)
+        try:
+            claims_and_ratings = verify_button(user_input, input_format)
             print(claims_and_ratings, "claims and ratings in render input screen")
         except RuntimeError as e:
             st.error(f"An error occurred during verification: {e}")
