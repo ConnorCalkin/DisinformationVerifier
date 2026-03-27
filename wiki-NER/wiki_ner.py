@@ -176,7 +176,7 @@ def lambda_handler(event, context):
 
     logging.info(f"Lambda execution started", extra={"event": event})
 
-    event = json.loads(event["body"])
+    # event = json.loads(event["body"])
 
     try:
         # Step 1: Parse input from previous pipeline step ie the list of claims
