@@ -14,8 +14,8 @@ resource "aws_iam_role" "rds_connect_lambda_role" {
     })
 }
 
-resource "aws_iam_policy" "rds_connect_lambda_rds_access_policy" {
-    name = "c22-dv-rds-connect-lambda-rds-access-policy"
+resource "aws_iam_policy" "rds_connect_rds_access_policy" {
+    name = "c22-dv-rds-connect-rds-access-policy"
 
     policy = jsonencode({
         Version = "2012-10-17",
@@ -60,5 +60,5 @@ resource "aws_iam_role_policy_attachment" "rds_connect_lambda_logs" {
 
 resource "aws_iam_role_policy_attachment" "rds_connect_lambda_rds_access" {
     role       = aws_iam_role.rds_connect_lambda_role.name
-    policy_arn = aws_iam_policy.rds_connect_lambda_rds_access_policy.arn
+    policy_arn = aws_iam_policy.rds_connect_rds_access_policy.arn
 }

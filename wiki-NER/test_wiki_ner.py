@@ -1,4 +1,5 @@
 # pylint: skip-file
+import json
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock, PropertyMock
 import wiki_ner
@@ -34,21 +35,19 @@ def test_lambda_handler_success(mock_page_factory, mock_resolve, mock_extract):
     # .sections, .fullurl, and .summary are PROPERTIES being awaited
     # We use PropertyMock to return an AsyncMock's return value
     type(mock_page).sections = PropertyMock(
-        return_value=AsyncMock(return_value=[])())
+        side_effect=AsyncMock(return_value=[]))
     type(mock_page).fullurl = PropertyMock(
-        return_value=AsyncMock(return_value="https://url.com")())
-    type(mock_page).summary = PropertyMock(
-        return_value=AsyncMock(return_value="Summary text")())
+        side_effect=AsyncMock(return_value="https://url.com"))
 
     mock_page_factory.return_value = mock_page
 
     # 3. Execute
-    event = {"claims": ["Water on Mars"]}
+    event = {"body": json.dumps({"claims": ["Water on Mars"]})}
     response = wiki_ner.lambda_handler(event, {})
 
     # 4. Assert
     assert response["statusCode"] == 200
-    assert "Summary text" in response["body"]
+    assert "https://url.com" in response["body"]
 
 # --- 3. EDGE CASES  ---
 
@@ -56,7 +55,8 @@ def test_lambda_handler_success(mock_page_factory, mock_resolve, mock_extract):
 @pytest.mark.parametrize("invalid_event", [{}, {"claims": []}, {"claims": None}])
 def test_handler_rejects_bad_input(invalid_event):
     """Verifies the guardrails for missing or null input."""
-    response = wiki_ner.lambda_handler(invalid_event, None)
+    event = {"body": json.dumps(invalid_event)}
+    response = wiki_ner.lambda_handler(event, None)
     assert response["statusCode"] == 400
 
 
@@ -91,6 +91,7 @@ def test_aws_infrastructure_failure(mock_sm):
     """Verifies the 500 error catch-all when AWS is unreachable."""
     mock_sm.side_effect = Exception("Connection Timeout")
 
-    response = wiki_ner.lambda_handler({"claims": ["Test"]}, None)
+    event = {"body": json.dumps({"claims": ["Test"]})}
+    response = wiki_ner.lambda_handler(event, None)
     assert response["statusCode"] == 500
     assert "Internal research engine error" in response["body"]

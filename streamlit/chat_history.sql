@@ -6,9 +6,10 @@ CREATE TABLE IF NOT EXISTS source_type (
 
 CREATE TABLE IF NOT EXISTS metrics (
     metrics_id INT GENERATED ALWAYS AS IDENTITY,
-    confidence FLOAT NOT NULL,
-    accuracy FLOAT NOT NULL,
-    metrics_summary VARCHAR(255) NOT NULL,
+    supported FLOAT NOT NULL,
+    contradicted FLOAT NOT NULL,
+    misleading FLOAT NOT NULL,
+    unsure FLOAT NOT NULL,
     PRIMARY KEY (metrics_id)
 );
 
