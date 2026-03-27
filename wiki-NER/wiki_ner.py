@@ -9,9 +9,6 @@ import wikipediaapi
 from openai import OpenAI
 
 sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
-wiki_api = wikipediaapi.AsyncWikipedia(
-    user_agent="DisinformationVerifier/1.0",
-    language='en')
 
 _CACHED_SECRET = None
 _OPENAI_CLIENT = None
@@ -148,7 +145,7 @@ def _format_article_response(
     }
 
 
-async def fetch_article_body(title: str, claims: list[str]) -> dict:
+async def fetch_article_body(wiki_api: wikipediaapi.AsyncWikipedia, title: str, claims: list[str]) -> dict:
     """ Retrieves context prioritising the summary and relevant sections of the Wikipedia article. """
 
     page = wiki_api.page(title)
@@ -175,7 +172,11 @@ setup_logging()  # Initialize logging configuration at the start of the Lambda e
 
 async def fetch_article_bodies(titles: list[str], claims: list[str]) -> list[dict]:
     """ Synchronous wrapper to fetch multiple Wikipedia articles in parallel. """
-    tasks = [fetch_article_body(title, claims) for title in titles]
+
+    wiki_api = wikipediaapi.AsyncWikipedia(
+        user_agent="DisinformationVerifier/1.0",
+        language='en')
+    tasks = [fetch_article_body(wiki_api, title, claims) for title in titles]
     return await asyncio.gather(*tasks)
 
 
