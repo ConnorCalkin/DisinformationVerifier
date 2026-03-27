@@ -19,9 +19,7 @@ from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_s
                                  Claim)
 
 
-
 import streamlit as st
-
 
 
 load_dotenv()
@@ -285,12 +283,12 @@ def verify_button(user_input: str, input_format: str) -> list[dict] | None:
 
 def render_trust_metrics(claims_and_rating: list[dict]) -> None:
     """Display bar metrics about the user input. These include:
-    -Trustworthiness
-    -Correctness
-    -Overall
-    -Confidence"""
+    -Supported
+    -Misleading
+    -Contradicted
+    -Unsure"""
 
-    trust, correctness, overall, confidence = calculate_metrics(
+    supported, misleading, contradicted, unsure = calculate_metrics(
         claims_and_rating)
 
     fields_col, values_col = st.columns([1, 3])
@@ -299,28 +297,49 @@ def render_trust_metrics(claims_and_rating: list[dict]) -> None:
         st.markdown(
             """
             <div style="line-height: 25px; font-weight: bold; text-align: left;">
-                Trustworthiness:<br>
-                Correctness:<br>
-                Overall:<br>
-                Confidence:
+                Supported:<br>
+                Misleading:<br>
+                Contradicted:<br>
+                Unsure:
             </div>
             """,
             unsafe_allow_html=True
         )
 
     with values_col:
-        render_metric_bars([trust,
-                            correctness,
-                            overall,
-                            confidence])
+        render_metric_bars([supported,
+                            misleading,
+                            contradicted,
+                            unsure])
 
 
 def calculate_metrics(claims_and_rating: list[dict]) -> tuple[float, float, float, float]:
-    """Create metrics about the user input based on the claims and their ratings."""
+    """Create metrics representing the proportion of each rating (0.0 to 1.0)."""
 
-    # TODO: Create function to calculate metrics based on claims and their ratings.
+    rating_totals = {
+        'SUPPORTED': 0,
+        'MISLEADING': 0,
+        'CONTRADICTED': 0,
+        'UNSURE': 0
+    }
 
-    return 0.1, 0.5, 0.75, 0.9  # Placeholder values for testing purposes
+    total_claims = len(claims_and_rating)
+
+    if total_claims == 0:
+        return (0.0, 0.0, 0.0, 0.0)
+
+    for response in claims_and_rating:
+        rating = response.get('rating', 'UNSURE')
+        if rating in rating_totals:
+            rating_totals[rating] += 1
+
+    # Convert to proportions (0 to 1)
+    return (
+        rating_totals['SUPPORTED'] / total_claims,
+        rating_totals['MISLEADING'] / total_claims,
+        rating_totals['CONTRADICTED'] / total_claims,
+        rating_totals['UNSURE'] / total_claims
+    )
 
 
 def render_input_screen(screen_placeholder) -> list[dict]:
