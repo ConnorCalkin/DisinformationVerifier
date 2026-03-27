@@ -1,13 +1,15 @@
 import json
 import logging
 from os import environ
+import asyncio
+
 import boto3
 import wikipedia
 import wikipediaapi
 from openai import OpenAI
 
 sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
-wiki_api = wikipediaapi.Wikipedia(
+wiki_api = wikipediaapi.AsyncWikipedia(
     user_agent="DisinformationVerifier/1.0",
     language='en')
 
@@ -69,6 +71,7 @@ def _call_llm_for_terms(openai_client: OpenAI, prompt: str) -> list[str]:
     """ Phase 1: API Interaction - Only for networking calls to the LLM. """
     response = openai_client.chat.completions.create(
         model="gpt-5-nano",
+        reasoning_effort="low",
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"}
     )
@@ -97,7 +100,8 @@ def extract_wiki_terms_from_claims(claims: list[str]) -> list[str]:
     Claims: {claims}
 
     Return ONLY a JSON object with the key 'search_terms'.
-    Example: {{"search_terms": ["NASA", "Artemis program", "2024 Solar Eclipse"]}}
+    Example: {
+        {"search_terms": ["NASA", "Artemis program", "2024 Solar Eclipse"]}}
     """
     # Call OpenAI API with the prompt and return the list of article titles
     try:
@@ -135,35 +139,33 @@ def _extract_relevant_sections(
 def _format_article_response(
         title: str,
         url: str,
-        summary: str,
         relevant_sections: str) -> dict:
     """ Helper function to structure the Wikipedia article data in a consistent format. """
     return {
         "title": title,
         "url": url,
-        "summary": summary,
         "relevant_sections": relevant_sections
     }
 
 
-def fetch_article_body(title: str, claims: list[str]) -> dict:
+async def fetch_article_body(title: str, claims: list[str]) -> dict:
     """ Retrieves context prioritising the summary and relevant sections of the Wikipedia article. """
 
     page = wiki_api.page(title)
 
-    if not page.exists():
+    if not await page.exists():
         logging.warning(f"Article not found: {title}")
         return {}
 
     # Scan sections for keywords from the claims to find relevant context
     # Flattens claims into a list of keywords
     keywords = " ".join(claims).lower().split()
-    relevant_sections = _extract_relevant_sections(page.sections, keywords)
+    sections = await page.sections
+    relevant_sections = _extract_relevant_sections(sections, keywords)
 
     return _format_article_response(
         title=title,
-        url=page.fullurl,
-        summary=page.summary,
+        url=await page.fullurl,
         relevant_sections=relevant_sections
     )
 
@@ -171,10 +173,18 @@ def fetch_article_body(title: str, claims: list[str]) -> dict:
 setup_logging()  # Initialize logging configuration at the start of the Lambda execution
 
 
-def lambda_handler(event, context):
+async def fetch_article_bodies(titles: list[str], claims: list[str]) -> list[dict]:
+    """ Synchronous wrapper to fetch multiple Wikipedia articles in parallel. """
+    tasks = [fetch_article_body(title, claims) for title in titles]
+    return await asyncio.gather(*tasks)
+
+
+def lambda_handler(event: dict, context: dict) -> dict:
     """ Coordinates the flow from Claim Input -> Search Terms -> Wiki Data Retrieval. """
 
     logging.info(f"Lambda execution started", extra={"event": event})
+
+    event = json.loads(event["body"])
 
     try:
         # Step 1: Parse input from previous pipeline step ie the list of claims
@@ -183,7 +193,7 @@ def lambda_handler(event, context):
             logging.warning(
                 "Validation Failed: 'claims' key is missing or empty in the event.")
             return {"statusCode": 400, "body": json.dumps(
-                {"error": "No claims provided in the event."})}
+                {"error": f"No claims provided in the event. Event body received: {event}"})}
         # Step 2: Extract relevant Wikipedia article titles using LLM
         search_queries = extract_wiki_terms_from_claims(claims)
         if not search_queries:
@@ -192,17 +202,13 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 200,
                 # Return empty context if no search terms found
-                "body": json.dumps({"wiki_context": [], 
+                "body": json.dumps({"wiki_context": [],
                                     "message": "No relevant search terms found."})
             }
         # Step 3: Resolve those titles to actual Wikipedia articles
         valid_titles = resolve_wiki_titles(search_queries)
         # Step 4: Fetch the content of each valid Wikipedia article
-        wiki_evidence = []
-        for title in valid_titles:
-            article_data = fetch_article_body(title, claims)
-            if article_data:
-                wiki_evidence.append(article_data)
+        wiki_evidence = asyncio.run(fetch_article_bodies(valid_titles, claims))
 
         logging.info(f"Retrieved Wikipedia context: {wiki_evidence}")
         return {
