@@ -41,7 +41,7 @@ setup_logging()
 st.set_page_config(layout="wide")
 
 # Set the title of the app
-st.title('Disinformation Verifier Chatbot')
+st.title('BENCHMARK')
 
 
 def display_claim_and_rating(claim: dict, box_design) -> None:
@@ -222,11 +222,12 @@ def get_unrated_claims_from_input(user_input: str, input_format: str) -> list[Cl
     """Extract claims from the user input based on the input format."""
 
     if input_format == 'Claim':
-            unrated_claims = [Claim(claim_text=user_input)]
+        unrated_claims = [Claim(claim_text=user_input)]
 
     if input_format == 'URL':
         article_body = send_url_to_web_scraping_lambda(
             user_input, SCRAPE_URL)
+
         unrated_claims = get_claims_from_text(article_body)
 
     if input_format == 'Article Text':
@@ -239,26 +240,20 @@ def get_unrated_claims_from_input(user_input: str, input_format: str) -> list[Cl
 def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], list[dict]]:
     """Send claims to RAG and Wikipedia lambdas and return the context retrieved from both."""
 
-    logging.info("Connecting to RAG")
-    
-    try:
-        rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
-        logging.info("Successfully retrieved context from RAG: example snippet: " + str(rag_context[0][0]) + "...")
-
-    except RuntimeError as e:
-        st.error(f"An error occurred in RAG servers: {e}")
-        return None
-
     logging.info("Connecting to Wikipedia")
-    try:
-        wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
-        logging.info("Successfully retrieved context from Wikipedia: example snippet: " + str(wiki_context[0]) + "...")
-    except RuntimeError as e:
-        st.error(f"An error occurred in Wikipedia servers: {e}")
-        return None
-    
+    wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
+    logging.info("Successfully retrieved context from Wikipedia: example snippet: " +
+                 str(wiki_context[0]) + "...")
+
+    logging.debug(type(wiki_context[0]), "type of first wiki context element")
+
+    logging.info("Connecting to RAG")
+    rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
+    logging.info("Successfully retrieved context from RAG: example snippet: " +
+                 str(rag_context[0][0]) + "...")
+
     return wiki_context, rag_context
-    
+
 
 def get_claims_and_ratings_from_input(user_input: str, input_format: str) -> list[dict] | None:
     """
@@ -271,7 +266,8 @@ def get_claims_and_ratings_from_input(user_input: str, input_format: str) -> lis
 
     if user_input.strip() != "":
 
-        unrated_claims = get_unrated_claims_from_input(user_input, input_format)
+        unrated_claims = get_unrated_claims_from_input(
+            user_input, input_format)
 
         wiki_context, rag_context = get_context_from_lambdas(unrated_claims)
 
@@ -295,7 +291,7 @@ def verify_button(user_input: str, input_format: str) -> list[dict] | None:
     if button_clicked:
         claims_and_ratings = get_claims_and_ratings_from_input(
             user_input, input_format)
-        
+
         return claims_and_ratings
 
     return None
@@ -373,6 +369,9 @@ def render_input_screen(screen_placeholder) -> list[dict]:
             claims_and_ratings = verify_button(user_input, input_format)
         except RuntimeError as e:
             st.error(f"An error occurred during verification: {e}")
+            return None
+        except ValueError as e:
+            st.error(f"An error occurred while processing the claims: {e}")
             return None
 
         # TODO: Add a function to store claims, ratings, source_type and source in a database for future analysis.

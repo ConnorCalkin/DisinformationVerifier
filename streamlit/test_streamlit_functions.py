@@ -277,7 +277,7 @@ def test_create_llm_prompt():
 6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
 
 ### Output Format:
-|'claim_made','rating','[Explanation]'. 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
+|'claim_made','rating','[Explanation]', 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
 
 
 def test_validate_inputs_for_prompt():
