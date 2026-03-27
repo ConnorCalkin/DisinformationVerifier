@@ -229,7 +229,7 @@ def send_url_to_web_scraping_lambda(user_url: str, lambda_url: str) -> str:
     payload = {"url": user_url}
     response = post_to_lambda(lambda_url, payload)
 
-    return response["message"]
+    return response["text"]
 
 
 def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict]:
@@ -241,7 +241,6 @@ def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict
 
     payload = {"claims": claims}
     response = post_to_lambda(lambda_url, payload)
-
 
     return response
 
@@ -302,19 +301,17 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
 
     print(claims)
 
-    
     for claim in claims:
         info = re.split(r"',\s*'", claim)
-
 
         claim_dict = {
             "claim": info[0].replace("|", "").replace("'", ""),
             "rating": info[1].upper().strip(),
-            "explanation": (info[2] + " " + info[3].replace("'","")).strip()
+            "explanation": (info[2] + " " + info[3].replace("'", "")).strip()
         }
 
         result.append(claim_dict)
-    
+
     logging.info(f"Claims and ratings obtained: {result}")
 
     return result
