@@ -176,6 +176,8 @@ def lambda_handler(event, context):
 
     logging.info(f"Lambda execution started", extra={"event": event})
 
+    event = json.loads(event["body"])
+
     try:
         # Step 1: Parse input from previous pipeline step ie the list of claims
         claims = event.get("claims", [])
@@ -183,7 +185,7 @@ def lambda_handler(event, context):
             logging.warning(
                 "Validation Failed: 'claims' key is missing or empty in the event.")
             return {"statusCode": 400, "body": json.dumps(
-                {"error": "No claims provided in the event."})}
+                {"error": f"No claims provided in the event. Event body received: {event}"})}
         # Step 2: Extract relevant Wikipedia article titles using LLM
         search_queries = extract_wiki_terms_from_claims(claims)
         if not search_queries:
