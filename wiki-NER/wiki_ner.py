@@ -1,13 +1,15 @@
 import json
 import logging
 from os import environ
+import asyncio
+
 import boto3
 import wikipedia
 import wikipediaapi
 from openai import OpenAI
 
 sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
-wiki_api = wikipediaapi.Wikipedia(
+wiki_api = wikipediaapi.AsyncWikipedia(
     user_agent="DisinformationVerifier/1.0",
     language='en')
 
@@ -97,7 +99,8 @@ def extract_wiki_terms_from_claims(claims: list[str]) -> list[str]:
     Claims: {claims}
 
     Return ONLY a JSON object with the key 'search_terms'.
-    Example: {{"search_terms": ["NASA", "Artemis program", "2024 Solar Eclipse"]}}
+    Example: {
+        {"search_terms": ["NASA", "Artemis program", "2024 Solar Eclipse"]}}
     """
     # Call OpenAI API with the prompt and return the list of article titles
     try:
@@ -146,24 +149,25 @@ def _format_article_response(
     }
 
 
-def fetch_article_body(title: str, claims: list[str]) -> dict:
+async def fetch_article_body(title: str, claims: list[str]) -> dict:
     """ Retrieves context prioritising the summary and relevant sections of the Wikipedia article. """
 
     page = wiki_api.page(title)
 
-    if not page.exists():
+    if not await page.exists():
         logging.warning(f"Article not found: {title}")
         return {}
 
     # Scan sections for keywords from the claims to find relevant context
     # Flattens claims into a list of keywords
     keywords = " ".join(claims).lower().split()
-    relevant_sections = _extract_relevant_sections(page.sections, keywords)
+    sections = await page.sections
+    relevant_sections = _extract_relevant_sections(sections, keywords)
 
     return _format_article_response(
         title=title,
-        url=page.fullurl,
-        summary=page.summary,
+        url=await page.fullurl,
+        summary=await page.summary,
         relevant_sections=relevant_sections
     )
 
@@ -171,7 +175,13 @@ def fetch_article_body(title: str, claims: list[str]) -> dict:
 setup_logging()  # Initialize logging configuration at the start of the Lambda execution
 
 
-def lambda_handler(event, context):
+async def fetch_article_bodies(titles: list[str], claims: list[str]) -> list[dict]:
+    """ Synchronous wrapper to fetch multiple Wikipedia articles in parallel. """
+    tasks = [fetch_article_body(title, claims) for title in titles]
+    return await asyncio.gather(*tasks)
+
+
+def lambda_handler(event: dict, context: dict) -> dict:
     """ Coordinates the flow from Claim Input -> Search Terms -> Wiki Data Retrieval. """
 
     logging.info(f"Lambda execution started", extra={"event": event})
@@ -192,17 +202,13 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 200,
                 # Return empty context if no search terms found
-                "body": json.dumps({"wiki_context": [], 
+                "body": json.dumps({"wiki_context": [],
                                     "message": "No relevant search terms found."})
             }
         # Step 3: Resolve those titles to actual Wikipedia articles
         valid_titles = resolve_wiki_titles(search_queries)
         # Step 4: Fetch the content of each valid Wikipedia article
-        wiki_evidence = []
-        for title in valid_titles:
-            article_data = fetch_article_body(title, claims)
-            if article_data:
-                wiki_evidence.append(article_data)
+        wiki_evidence = asyncio.run(fetch_article_bodies(valid_titles, claims))
 
         logging.info(f"Retrieved Wikipedia context: {wiki_evidence}")
         return {
