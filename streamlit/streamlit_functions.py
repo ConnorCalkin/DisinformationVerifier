@@ -43,7 +43,7 @@ CLAIM_RATING_DEVELOPER_ROLE_CONTENT = """# Role
 Professional Fact-Verification Engine (Simplified Mode)
 
 # Task
-Evaluate "Claims" against the provided "Factual Context" (Wiki or RAG chunks). 
+Evaluate "Claims" against the provided "Factual Context" (Wikipedia or RAG chunks). 
 
 # Rating Definitions
 1. SUPPORTED: Context explicitly confirms the claim.
@@ -60,7 +60,7 @@ to allow for clear parsing of the explanation and sources.
 
 # Output Format
 Return each result on a NEW LINE starting with a pipe character in this exact format:
-|'claim_made','rating','[Explanation sentence]', 'Sources: [Specify "Wiki" and/or the specific URL(s) provided in the RAG facts]' 
+|'claim_made','rating','[Explanation sentence]', 'Sources: [Specify "Wikipedia" and/or the specific URL(s) provided in the RAG facts]' 
 """
 
 CLAIM_RATING_DEVELOPER_ROLE = {
@@ -191,7 +191,7 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
     and returns the response as a dict."""
 
     logging.info(
-        f"Sending POST request to lambda at {lambda_url} with payload: {payload}")
+        f"Sending POST request to lambda with payload: {payload}")
 
     if "claims" in payload:
         payload["queries"] = payload["claims"]
@@ -206,21 +206,9 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
             f"Lambda request failed with status code {response.status_code}: {response.text}")
         raise RuntimeError(f"{response.text}")
 
-    logging.info(f"Received response from lambda: {response.json()}")
+    logging.info(f"Received response from lambda: ")
 
     return response.json()
-
-
-# def validate_response_status(response: dict, status_key: str) -> None:
-#     """Raises RuntimeError if the response
-#     status code is not 200."""
-
-#     if response.get(status_key) != 200:
-#         error_msg = response.get(
-#             "message",
-#             "Lambda request failed."
-#         )
-#         raise RuntimeError(error_msg)
 
 
 def send_url_to_web_scraping_lambda(user_url: str, lambda_url: str) -> str:
@@ -242,7 +230,6 @@ def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict
     payload = {"claims": claims}
     response = post_to_lambda(lambda_url, payload)
 
-
     return response
 
 
@@ -256,16 +243,14 @@ def send_claims_to_wiki_lambda(claims: list[Claim], lambda_url: str) -> list[dic
     payload = {"claims": claims}
 
     response = post_to_lambda(lambda_url, payload)
-    # validate_response_status(
-    #     response, "statusCode"
-    # )
+
     return response["wiki_context"]
 
 
 def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict]) -> str:
     """
     This functions sends the claims to openai along with context from
-    wiki and RAG. 
+    Wikipedia and RAG. 
     Openai will return categorical ratings for each claim along with a brief explanation for the rating.
     This will include the source that a claim was proved/disproved via.
 
@@ -278,11 +263,11 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
 
     response = query_llm(prompt, client,
                          CLAIM_RATING_DEVELOPER_ROLE,
-                         "Successfully rated claims based on wiki and RAG context.")
+                         "Successfully rated claims based on Wikipedia and RAG context.")
 
     # validate_response_format(response)
 
-    logging.info(f"LLM returned response: {response}")
+    logging.info(f"LLM returned response: {response[:50]} ...")
 
     return response
 
@@ -302,20 +287,18 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
 
     print(claims)
 
-    
     for claim in claims:
         info = re.split(r"',\s*'", claim)
-
 
         claim_dict = {
             "claim": info[0].replace("|", "").replace("'", ""),
             "rating": info[1].upper().strip(),
-            "explanation": (info[2] + " " + info[3].replace("'","")).strip()
+            "explanation": (info[2] + " " + info[3].replace("'", "")).strip()
         }
 
         result.append(claim_dict)
-    
-    logging.info(f"Claims and ratings obtained: {result}")
+
+    logging.info(f"Claims and ratings obtained: {result[:3]}")
 
     return result
 
@@ -326,7 +309,7 @@ def create_llm_prompt(
     rag_context: list[list[dict]]
 ) -> str:
     """Creates a prompt for the LLM based on
-    claims, wiki context and RAG context.
+    claims, Wikipedia context and RAG context.
 
     RAG dict keys: title, content,
     source_url, created_at"""
@@ -375,12 +358,12 @@ def create_llm_prompt(
 1. Assign one rating: SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE.
 2. A claim is MISLEADING if it is directionally correct but lacks the specific detail, nuance, or precision found in the sources.
 3. Provide a brief 1-2 sentence explanation.
-4. Identify if the information came from "Wiki", a URL, or multiple.
+4. Identify if the information came from "Wikipedia", a URL, or multiple.
 5. DO NOT include any sources if the claim is rated UNSURE.
 6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
 
 ### Output Format:
-|'claim_made','rating','[Explanation]'. 'Sources: [Wiki and/or the specific Source URL(s) or 'None' if UNSURE]' """
+|'claim_made','rating','[Explanation]'. 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
 
     return prompt
 
@@ -392,7 +375,7 @@ def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], ra
         raise ValueError("Claims must be a list of Claim objects.")
 
     if not isinstance(wiki_context, list) or not all(isinstance(w, dict) for w in wiki_context):
-        raise ValueError("Wiki context must be a list of strings.")
+        raise ValueError("Wikipedia context must be a list of strings.")
 
     if not isinstance(rag_context, list) or not all(isinstance(r, list) for r in rag_context):
         raise ValueError("RAG context must be a list of lists.")
@@ -400,7 +383,7 @@ def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], ra
     if claims == []:
         raise ValueError("Claims list is empty.")
     if wiki_context == []:
-        raise ValueError("Wiki context list is empty.")
+        raise ValueError("Wikipedia context list is empty.")
     if rag_context == []:
         raise ValueError("RAG context list is empty.")
 

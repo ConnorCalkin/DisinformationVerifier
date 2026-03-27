@@ -2,7 +2,7 @@
 This script will run a streamlit 'front end' for the RAG chatbot.
 
 When a user inputs an article, url or claim. This script will extract claims from the input
-(scraping a page first if it's a url). 
+(scraping a page first if it's a url).
 
 These claims are then sent to multiple lambda functions via lambda urls.
 """
@@ -19,9 +19,7 @@ from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_s
                                  Claim)
 
 
-
 import streamlit as st
-
 
 
 load_dotenv()
@@ -29,14 +27,9 @@ load_dotenv()
 
 WIKI_URL = os.getenv("WIKI_URL")
 RAG_URL = os.getenv("RAG_URL")
-# TODO: Add lambda url for web scraping function once it's deployed.
 SCRAPE_URL = os.getenv("SCRAPE_URL")
 
 setup_logging()
-
-# TODO: import function that retrieves claims from a text body.
-
-# TODO: import function that retrieves article body from a url.
 
 st.set_page_config(layout="wide")
 
@@ -211,14 +204,55 @@ def render_claims(claims: list[dict]) -> None:
     }
 
     for claim in claims:
-        print(claim, "assuming this is empty")
 
         box_design = box_designs.get(claim['rating'])
         with st.container(border=True):
             display_claim_and_rating(claim, box_design)
 
 
-def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict] | None:
+def get_unrated_claims_from_input(user_input: str, input_format: str) -> list[Claim]:
+    """Extract claims from the user input based on the input format."""
+
+    if input_format == 'Claim':
+            unrated_claims = [Claim(claim_text=user_input)]
+
+    if input_format == 'URL':
+        article_body = send_url_to_web_scraping_lambda(
+            user_input, SCRAPE_URL)
+        unrated_claims = get_claims_from_text(article_body)
+
+    if input_format == 'Article Text':
+
+        unrated_claims = get_claims_from_text(user_input)
+
+    return unrated_claims
+
+
+def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], list[dict]]:
+    """Send claims to RAG and Wikipedia lambdas and return the context retrieved from both."""
+
+    logging.info("Connecting to RAG")
+    
+    try:
+        rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
+        logging.info("Successfully retrieved context from RAG: example snippet: " + str(rag_context[0][0]) + "...")
+
+    except RuntimeError as e:
+        st.error(f"An error occurred in RAG servers: {e}")
+        return None
+
+    logging.info("Connecting to Wikipedia")
+    try:
+        wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
+        logging.info("Successfully retrieved context from Wikipedia: example snippet: " + str(wiki_context[0]) + "...")
+    except RuntimeError as e:
+        st.error(f"An error occurred in Wikipedia servers: {e}")
+        return None
+    
+    return wiki_context, rag_context
+    
+
+def get_claims_and_ratings_from_input(user_input: str, input_format: str) -> list[dict] | None:
     """
     Main process function for RAG interface.
 
@@ -229,38 +263,14 @@ def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict
 
     if user_input.strip() != "":
 
-        if format == 'Claim':
-            unrated_claims = [Claim(claim_text=user_input)]
+        unrated_claims = get_unrated_claims_from_input(user_input, input_format)
 
-        if format == 'URL':
-            article_body = send_url_to_web_scraping_lambda(
-                user_input, SCRAPE_URL)
-            unrated_claims = get_claims_from_text(article_body)
-
-        if format == 'Article Text':
-
-            unrated_claims = get_claims_from_text(user_input)
-
-        logging.info("Connecting to RAG")
-        try:
-            rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
-        except RuntimeError as e:
-            st.error(f"An error occurred in RAG servers: {e}")
-            return None
-
-        logging.info("Connecting to Wiki")
-        try:
-            wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
-        except RuntimeError as e:
-            st.error(f"An error occurred in Wiki servers: {e}")
-            return None
+        wiki_context, rag_context = get_context_from_lambdas(unrated_claims)
 
         rated_claims = rate_claims_via_llm(
             unrated_claims, wiki_context, rag_context)
 
         rated_claims = convert_llm_response_to_dict(rated_claims)
-
-        print(rated_claims, "claims and ratings after conversion to dict")
 
         return rated_claims
 
@@ -277,7 +287,7 @@ def verify_button(user_input: str, input_format: str) -> list[dict] | None:
     if button_clicked:
         claims_and_ratings = get_claims_and_ratings_from_input(
             user_input, input_format)
-        print(claims_and_ratings)
+        
         return claims_and_ratings
 
     return None
@@ -332,7 +342,6 @@ def render_input_screen(screen_placeholder) -> list[dict]:
 
         try:
             claims_and_ratings = verify_button(user_input, input_format)
-            print(claims_and_ratings, "claims and ratings in render input screen")
         except RuntimeError as e:
             st.error(f"An error occurred during verification: {e}")
             return None
@@ -364,8 +373,6 @@ if __name__ == "__main__":
     placeholder = st.empty()
 
     claims_and_ratings = render_input_screen(placeholder)
-
-    print(claims_and_ratings, "after rendering input screen")
 
     if claims_and_ratings is not None:
         render_results_screen(claims_and_ratings, placeholder)
