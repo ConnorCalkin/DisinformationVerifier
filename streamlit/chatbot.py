@@ -29,6 +29,13 @@ WIKI_URL = os.getenv("WIKI_URL")
 RAG_URL = os.getenv("RAG_URL")
 SCRAPE_URL = os.getenv("SCRAPE_URL")
 
+CATEGORY_COLORS = {
+    'SUPPORTED': "#28a745",
+    'MISLEADING': "#ffa421",
+    'CONTRADICTED': "#ff4b4b",
+    'UNSURE': "#17a2b8"
+}
+
 setup_logging()
 
 st.set_page_config(layout="wide")
@@ -142,17 +149,14 @@ def add_grey_background(y_positions: list[str]) -> go.Figure:
 def add_metric_bars(fig: go.Figure, values: list[float], y_positions: list[str]) -> go.Figure:
     """Adds colored bars corresponding to the value (0-1) on top of the grey background."""
 
-    colorscale = [[0, "#FF4B4B"], [0.5, "#FFA421"], [1, "#28A745"]]
+    bar_colors = [CATEGORY_COLORS.get(y, "#D3D3D3") for y in y_positions]
 
     fig.add_trace(go.Bar(
         x=values,
         y=y_positions,
         orientation='h',
         marker=dict(
-            color=values,
-            colorscale=colorscale,
-            cmin=0,
-            cmax=1,
+            color=bar_colors,
             line={"width": 0}
         ),
         width=0.5
@@ -182,7 +186,10 @@ def update_figure_layout(fig: go.Figure) -> go.Figure:
 def render_metric_bars(values: list[float]):
     """Displays horizontal bars with colors corresponding to the value (0-1)."""
 
-    y_positions = ["A", "B", "C", "D"]
+    y_positions = ["SUPPORTED", "MISLEADING", "CONTRADICTED", "UNSURE"]
+
+    y_positions = y_positions[::-1]
+    values = values[::-1]
 
     fig = add_grey_background(y_positions)
 
@@ -190,7 +197,8 @@ def render_metric_bars(values: list[float]):
 
     fig = update_figure_layout(fig)
 
-    st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
+    st.plotly_chart(fig, use_container_width=True,
+                    config={'staticPlot': True})
 
 
 def render_claims(claims: list[dict]) -> None:
@@ -295,12 +303,12 @@ def verify_button(user_input: str, input_format: str) -> list[dict] | None:
 
 def render_trust_metrics(claims_and_rating: list[dict]) -> None:
     """Display bar metrics about the user input. These include:
-    -Trustworthiness
-    -Correctness
-    -Overall
-    -Confidence"""
+    -Supported
+    -Misleading
+    -Contradicted
+    -Unsure"""
 
-    trust, correctness, overall, confidence = calculate_metrics(
+    supported, misleading, contradicted, unsure = calculate_metrics(
         claims_and_rating)
 
     fields_col, values_col = st.columns([1, 3])
@@ -309,28 +317,49 @@ def render_trust_metrics(claims_and_rating: list[dict]) -> None:
         st.markdown(
             """
             <div style="line-height: 25px; font-weight: bold; text-align: left;">
-                Trustworthiness:<br>
-                Correctness:<br>
-                Overall:<br>
-                Confidence:
+                Supported:<br>
+                Misleading:<br>
+                Contradicted:<br>
+                Unsure:
             </div>
             """,
             unsafe_allow_html=True
         )
 
     with values_col:
-        render_metric_bars([trust,
-                            correctness,
-                            overall,
-                            confidence])
+        render_metric_bars([supported,
+                            misleading,
+                            contradicted,
+                            unsure])
 
 
 def calculate_metrics(claims_and_rating: list[dict]) -> tuple[float, float, float, float]:
-    """Create metrics about the user input based on the claims and their ratings."""
+    """Create metrics representing the proportion of each rating (0.0 to 1.0)."""
 
-    # TODO: Create function to calculate metrics based on claims and their ratings.
+    rating_totals = {
+        'SUPPORTED': 0,
+        'MISLEADING': 0,
+        'CONTRADICTED': 0,
+        'UNSURE': 0
+    }
 
-    return 0.1, 0.5, 0.75, 0.9  # Placeholder values for testing purposes
+    total_claims = len(claims_and_rating)
+
+    if total_claims == 0:
+        return (0.0, 0.0, 0.0, 0.0)
+
+    for response in claims_and_rating:
+        rating = response.get('rating', 'UNSURE')
+        if rating in rating_totals:
+            rating_totals[rating] += 1
+
+    # Convert to proportions (0 to 1)
+    return (
+        rating_totals['SUPPORTED'] / total_claims,
+        rating_totals['MISLEADING'] / total_claims,
+        rating_totals['CONTRADICTED'] / total_claims,
+        rating_totals['UNSURE'] / total_claims
+    )
 
 
 def render_input_screen(screen_placeholder) -> list[dict]:

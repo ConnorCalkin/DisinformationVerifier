@@ -217,7 +217,7 @@ def send_url_to_web_scraping_lambda(user_url: str, lambda_url: str) -> str:
     payload = {"url": user_url}
     response = post_to_lambda(lambda_url, payload)
 
-    return response["message"]
+    return response["text"]
 
 
 def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict]:
