@@ -71,6 +71,7 @@ def _call_llm_for_terms(openai_client: OpenAI, prompt: str) -> list[str]:
     """ Phase 1: API Interaction - Only for networking calls to the LLM. """
     response = openai_client.chat.completions.create(
         model="gpt-5-nano",
+        reasoning_effort="low",
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"}
     )
@@ -138,13 +139,11 @@ def _extract_relevant_sections(
 def _format_article_response(
         title: str,
         url: str,
-        summary: str,
         relevant_sections: str) -> dict:
     """ Helper function to structure the Wikipedia article data in a consistent format. """
     return {
         "title": title,
         "url": url,
-        "summary": summary,
         "relevant_sections": relevant_sections
     }
 
@@ -167,7 +166,6 @@ async def fetch_article_body(title: str, claims: list[str]) -> dict:
     return _format_article_response(
         title=title,
         url=await page.fullurl,
-        summary=await page.summary,
         relevant_sections=relevant_sections
     )
 
@@ -186,7 +184,7 @@ def lambda_handler(event: dict, context: dict) -> dict:
 
     logging.info(f"Lambda execution started", extra={"event": event})
 
-    # event = json.loads(event["body"])
+    event = json.loads(event["body"])
 
     try:
         # Step 1: Parse input from previous pipeline step ie the list of claims
