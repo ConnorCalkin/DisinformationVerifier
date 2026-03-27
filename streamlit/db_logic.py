@@ -75,16 +75,17 @@ def fetch_input_details(input_id: int) -> dict:
                 c.claim_text,
                 c.rating,
                 c.evidence,
-                m.confidence,
-                m.accuracy,
-                m.metrics_summary,
+                m.supported,
+                m.contradicted,
+                m.misleading,
+                m.unsure,
                 s.source_type_name
             FROM 
                 input i
             LEFT JOIN 
                 claim c ON i.input_id = c.input_id
             LEFT JOIN 
-                metrics m ON i.response_id = m.metrics_id
+                metrics m ON i.metrics_id = m.metrics_id
             LEFT JOIN
                 source_type s ON c.source_type_id = s.source_type_id
             WHERE 
@@ -93,12 +94,12 @@ def fetch_input_details(input_id: int) -> dict:
     return run_query(query, (input_id,))
 
 
-def metrics_table_insert_execution(cur, confidence: float, accuracy: float, metrics_summary: str) -> str:
+def metrics_table_insert_execution(cur, supported: float, contradicted: float, misleading: float, unsure: float) -> str:
     """ Helper function to generate the SQL query for inserting metrics. """
     cur.execute( """
-                INSERT INTO metrics (confidence, accuracy, metrics_summary)
-                VALUES (%s, %s, %s) RETURNING metrics_id
-                """, (confidence, accuracy, metrics_summary))
+                INSERT INTO metrics (supported, contradicted, misleading, unsure)
+                VALUES (%s, %s, %s, %s) RETURNING metrics_id
+                """, (supported, contradicted, misleading, unsure))
     metrics_id = cur.fetchone()['metrics_id']
     return metrics_id
 
@@ -134,9 +135,10 @@ def claim_table_insert_execution(cur, input_id: int, claim_text: str, rating: st
 def archive_user_input(input_text: str,
                        input_summary: str,
                        source_type_name: str,
-                       confidence: float,
-                       accuracy: float,
-                       metrics_summary: str,
+                       supported: float,
+                       contradicted: float,
+                       misleading: float,
+                       unsure: float,
                        claims: list[dict]) -> None:
     """ 
     Archives a new user input along with its claims and metrics into the database. 
@@ -150,7 +152,7 @@ def archive_user_input(input_text: str,
         conn = get_db_connection()
         with conn.cursor() as cur:
             # Insert metrics to retrieve metrics_id
-            metrics_id = metrics_table_insert_execution(cur, confidence, accuracy, metrics_summary)
+            metrics_id = metrics_table_insert_execution(cur, supported, contradicted, misleading, unsure)
             # Insert source type to retrieve source_type_id
             source_type_id = source_type_table_insert_execution(cur, source_type_name)
             # Insert input and retrieve input_id
