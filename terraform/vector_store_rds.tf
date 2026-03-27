@@ -27,6 +27,12 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 
 }
 
+resource "random_password" "master" {
+  length           = 16
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
 resource "aws_db_instance" "rds_instance" {
   identifier             = "c22-dv-vector-store" 
   allocated_storage      = 10
@@ -35,7 +41,7 @@ resource "aws_db_instance" "rds_instance" {
   engine_version         = "13"
   instance_class         = "db.t3.micro"
   username               = var.db_username
-  password               = jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["RDS_PASSWORD"]
+  password               = random_password.master.result
   parameter_group_name   = "default.postgres13"
   skip_final_snapshot    = true
   

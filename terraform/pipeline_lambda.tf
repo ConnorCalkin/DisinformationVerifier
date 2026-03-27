@@ -23,7 +23,7 @@ resource "aws_lambda_function" "pipeline_lambda" {
             RDS_PORT     = 5432
             RDS_DB       = var.db_name
             RDS_USER     = var.db_username
-            RDS_PASSWORD = jsondecode(data.aws_secretsmanager_secret_version.credentials_val.secret_string)["RDS_PASSWORD"]
+            RDS_PASSWORD = random_password.master.result
             SECRET_ID    = aws_secretsmanager_secret.credentials.name
         }
     }
