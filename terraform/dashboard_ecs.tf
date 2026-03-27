@@ -140,13 +140,7 @@ resource "aws_ecs_task_definition" "dashboard_task" {
                     hostPort      = 8501,
                     protocol      = "tcp"
                 }
-            ],
-            secrets = [
-                {
-                    name      = "RDS_PASSWORD",
-                    valueFrom = "${aws_secretsmanager_secret.credentials.arn}:RDS_PASSWORD::"
-                }
-            ],
+            ]
             environment = [
                 { name = "RAG_LAMBDA_URL", value = aws_lambda_function_url.rag_lambda_url.function_url },
                 { name = "NER_LAMBDA_URL", value = aws_lambda_function_url.wiki_ner_lambda_url.function_url },
@@ -155,7 +149,8 @@ resource "aws_ecs_task_definition" "dashboard_task" {
                 { name = "RDS_DB",         value = "user_history" },
                 { name = "RDS_USER",       value = var.db_username },
                 { name = "SECRET_ID",      value = aws_secretsmanager_secret.credentials.name },
-                { name = "AWS_REGION",     value = "eu-west-2" }
+                { name = "AWS_REGION",     value = "eu-west-2" },
+                { name = "RDS_PASSWORD",   value = random_password.master.result }
             ],
             logConfiguration = {
                 logDriver = "awslogs",
