@@ -5,6 +5,7 @@ import psycopg2
 from psycopg2 import connect
 from psycopg2.extras import RealDictCursor
 from psycopg2.extensions import connection
+from dotenv import load_dotenv
 
 def setup_logging():
     """ Configures logging for the application. Logs will be sent to the console. """
@@ -13,6 +14,7 @@ def setup_logging():
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
 
+load_dotenv()
 def get_db_connection() -> connection:
     """ Establishes and returns a connection to the rds database. """
     try:
