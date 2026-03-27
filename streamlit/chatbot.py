@@ -213,15 +213,15 @@ def render_claims(claims: list[dict]) -> None:
 def get_unrated_claims_from_input(user_input: str, input_format: str) -> list[Claim]:
     """Extract claims from the user input based on the input format."""
 
-    if format == 'Claim':
+    if input_format == 'Claim':
             unrated_claims = [Claim(claim_text=user_input)]
 
-    if format == 'URL':
+    if input_format == 'URL':
         article_body = send_url_to_web_scraping_lambda(
             user_input, SCRAPE_URL)
         unrated_claims = get_claims_from_text(article_body)
 
-    if format == 'Article Text':
+    if input_format == 'Article Text':
 
         unrated_claims = get_claims_from_text(user_input)
 

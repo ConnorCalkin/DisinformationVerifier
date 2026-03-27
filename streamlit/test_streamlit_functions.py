@@ -272,12 +272,12 @@ def test_create_llm_prompt():
 1. Assign one rating: SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE.
 2. A claim is MISLEADING if it is directionally correct but lacks the specific detail, nuance, or precision found in the sources.
 3. Provide a brief 1-2 sentence explanation.
-4. Identify if the information came from "Wiki", a URL, or multiple.
+4. Identify if the information came from "Wikipedia", a URL, or multiple.
 5. DO NOT include any sources if the claim is rated UNSURE.
 6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
 
 ### Output Format:
-|'claim_made','rating','[Explanation]'. 'Sources: [Wiki and/or the specific Source URL(s) or 'None' if UNSURE]' """
+|'claim_made','rating','[Explanation]'. 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
 
 
 def test_validate_inputs_for_prompt():
