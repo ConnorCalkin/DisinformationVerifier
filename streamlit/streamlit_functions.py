@@ -375,10 +375,10 @@ def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], ra
     if not isinstance(claims, list) or not all(isinstance(c, Claim) for c in claims):
         raise ValueError("Claims must be a list of Claim objects.")
 
-    if wiki_context is not None and (wiki_context is not isinstance(wiki_context, list) or not all(isinstance(w, dict) for w in wiki_context)):
+    if wiki_context is not None and (not isinstance(wiki_context, list) or not all(isinstance(w, dict) for w in wiki_context)):
         raise ValueError("ERROR: Wikipedia context must be a list of dictionaries.")
 
-    if rag_context is not None and (rag_context is not isinstance(rag_context, list) or not all(isinstance(r, list) for r in rag_context)):
+    if rag_context is not None and (not isinstance(rag_context, list) or not all(isinstance(r, list) for r in rag_context)):
         raise ValueError("ERROR: RAG context must be a list of lists.")
 
     if claims == []:
