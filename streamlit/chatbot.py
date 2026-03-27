@@ -218,7 +218,7 @@ def render_claims(claims: list[dict]) -> None:
             display_claim_and_rating(claim, box_design)
 
 
-def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict]:
+def get_claims_and_ratings_from_input(user_input: str, format: str) -> list[dict] | None:
     """
     Main process function for RAG interface.
 
