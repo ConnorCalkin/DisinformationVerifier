@@ -32,9 +32,15 @@ resource "aws_iam_role_policy_attachment" "scheduler_lambda_invoke" {
     policy_arn = aws_iam_policy.scheduler_lambda_invoke_policy.arn
 }
 
+#create schedule group
+resource "aws_scheduler_schedule_group" "pipeline_schedule_group" {
+  name = "c22-dv-schedule-group"
+}
+
+
 resource "aws_scheduler_schedule" "pipeline_schedule" {
   name       = "c22-dv-pipeline-schedule"
-  group_name = "c22-dv-schedule-group"
+  group_name = aws_scheduler_schedule_group.pipeline_schedule_group.name
 
   flexible_time_window {
     mode = "OFF"
