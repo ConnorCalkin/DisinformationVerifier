@@ -170,12 +170,18 @@ async def fetch_article_body(wiki_api: wikipediaapi.AsyncWikipedia, title: str, 
 setup_logging()  # Initialize logging configuration at the start of the Lambda execution
 
 
+def get_async_wikipedia_client() -> wikipediaapi.AsyncWikipedia:
+    """ Abstracted function to initialize the asynchronous Wikipedia client. """
+    return wikipediaapi.AsyncWikipedia(
+        user_agent="DisinformationVerifier/1.0",
+        language='en'
+    )
+
+
 async def fetch_article_bodies(titles: list[str], claims: list[str]) -> list[dict]:
     """ Synchronous wrapper to fetch multiple Wikipedia articles in parallel. """
 
-    wiki_api = wikipediaapi.AsyncWikipedia(
-        user_agent="DisinformationVerifier/1.0",
-        language='en')
+    wiki_api = get_async_wikipedia_client()
     tasks = [fetch_article_body(wiki_api, title, claims) for title in titles]
     return await asyncio.gather(*tasks)
 

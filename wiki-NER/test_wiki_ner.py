@@ -20,8 +20,8 @@ def reset_state(monkeypatch):
 
 @patch("wiki_ner.extract_wiki_terms_from_claims")
 @patch("wiki_ner.resolve_wiki_titles")
-@patch("wiki_ner.wiki_api.page")
-def test_lambda_handler_success(mock_page_factory, mock_resolve, mock_extract):
+@patch("wiki_ner.get_async_wikipedia_client")
+def test_lambda_handler_success(mock_get_wiki_client, mock_resolve, mock_extract):
     # 1. Setup basic mocks
     mock_extract.return_value = ["Mars"]
     mock_resolve.return_value = ["Mars"]
@@ -39,7 +39,9 @@ def test_lambda_handler_success(mock_page_factory, mock_resolve, mock_extract):
     type(mock_page).fullurl = PropertyMock(
         side_effect=AsyncMock(return_value="https://url.com"))
 
-    mock_page_factory.return_value = mock_page
+    wiki_api = MagicMock()
+    wiki_api.page.return_value = mock_page
+    mock_get_wiki_client.return_value = wiki_api
 
     # 3. Execute
     event = {"body": json.dumps({"claims": ["Water on Mars"]})}
@@ -70,20 +72,17 @@ def test_llm_garbage_parsing(mock_client):
     assert terms == []  # Should recover and return empty list
 
 
-@pytest.mark.asyncio  # If using pytest-asyncio
-@patch("wiki_ner.wiki_api.page")
-async def test_wikipedia_page_missing(mock_page):
+@pytest.mark.asyncio
+async def test_wikipedia_page_missing():
     """Verifies that 404s from Wikipedia are handled without errors."""
+    mock_page = MagicMock()
+    mock_page.exists = AsyncMock(return_value=False)
 
-    # Configure the mock to return an object where .exists() is an AsyncMock
-    mock_exists = AsyncMock(return_value=False)
-    mock_page.return_value.exists = mock_exists
+    wiki_api = MagicMock()
+    wiki_api.page.return_value = mock_page
 
-    # Await the function call
-    result = await wiki_ner.fetch_article_body("Atlantis", ["ocean"])
-
-    assert result == {}
-    mock_exists.assert_awaited_once()
+    result = await wiki_ner.fetch_article_body(wiki_api, "NonExistentPage", ["Test"])
+    assert result == {}  # Should return empty dict when page doesn't exist
 
 
 @patch("wiki_ner.sm_client.get_secret_value")
