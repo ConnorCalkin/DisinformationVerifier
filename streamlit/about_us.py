@@ -2,7 +2,7 @@ import streamlit as st
 
 
 def render_about_us():
-    st.header("About Syft")
+    st.header("About Us")
     st.markdown("""
     Syft is an AI-powered fact-checking engine designed to provide transparency 
     and context to digital information. Our goal isn't to tell you what to think, 
@@ -70,10 +70,6 @@ def render_about_us():
 
     st.divider()
     st.info("Note: AI can make mistakes. Always review the 'Evidence' provided alongside each rating.")
-
-# At the top of your main file, add the import
-
-# ... (keep all your existing functions as they are) ...
 
 
 if __name__ == "__main__":

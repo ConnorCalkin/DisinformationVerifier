@@ -11,6 +11,7 @@ import os
 import plotly.graph_objects as go
 from dotenv import load_dotenv
 import logging
+from about_us import render_about_us
 from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
                                  get_claims_from_text,
                                  send_claims_to_rag_lambda,
@@ -38,10 +39,16 @@ CATEGORY_COLORS = {
 
 setup_logging()
 
-st.set_page_config(layout="wide")
+st.set_page_config(
+    layout="wide",
+    initial_sidebar_state="collapsed"  # This hides it on load
+)
 
-# Set the title of the app
-st.title('BENCHMARK')
+# Adjust ratio to control logo size
+header_col1, header_col2 = st.columns([1, 4])
+
+with header_col1:
+    st.image("logo.png", use_container_width=True)
 
 
 def display_claim_and_rating(claim: dict, box_design) -> None:
@@ -398,12 +405,22 @@ def render_results_screen(claims_and_ratings: list[dict], screen_placeholder) ->
 
 if __name__ == "__main__":
 
-    placeholder = st.empty()
+    with st.sidebar:
+        st.title("Navigation")
+        page = st.radio("Go to", ["Home", "Claims History", "About Us"])
 
-    claims_and_ratings = render_input_screen(placeholder)
+    if page == "Home":
+        placeholder = st.empty()
+        claims_and_ratings = render_input_screen(placeholder)
 
-    if claims_and_ratings is not None:
-        render_results_screen(claims_and_ratings, placeholder)
+        if claims_and_ratings is not None:
+            render_results_screen(claims_and_ratings, placeholder)
 
-        if st.button('Verify another claim?'):
-            st.rerun()
+            if st.button('Verify another claim?'):
+                st.rerun()
+
+    elif page == "Claims History":
+        st.info("Claims History page is under construction. Stay tuned for updates!")
+
+    elif page == "About Us":
+        render_about_us()
