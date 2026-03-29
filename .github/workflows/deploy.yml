@@ -1,0 +1,59 @@
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write # Required for requesting the JWT
+  contents: read  # Required for actions/checkout
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - { name: "wiki-ner", path: "./wiki-NER", ecr_repo: "c22-dv-wiki-ner-repo" }
+          - { name: "url-scraper", path: "./url_scraper", ecr_repo: "c22-dv-url-scraper-repo" }
+          - { name: "rag", path: "./rss_pipeline/rag", ecr_repo: "c22-dv-rag-image" }
+          - { name: "rss-pipeline", path: "./rss_pipeline", ecr_repo: "c22-dv-pipeline-image" }
+          - { name: "streamlit", path: "./streamlit", ecr_repo: "c22-dv-streamlit-image" }
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecr-role
+          aws-region: eu-west-2 # Change to your region
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ matrix.service.ecr_repo }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # 1. Ensure repo exists (from your script)
+          aws ecr describe-repositories --repository-names $ECR_REPOSITORY || \
+          aws ecr create-repository --repository-name $ECR_REPOSITORY
+
+          # 2. Build with explicit platform (important for Lambda/ECS)
+          docker build \
+            --platform linux/amd64 \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            ${{ matrix.service.path }}
+
+          # 3. Push both tags
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+
+          
