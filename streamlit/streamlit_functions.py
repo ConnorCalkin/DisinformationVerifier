@@ -17,7 +17,8 @@ CLAIM_EXTRACTION_DEVELOPER_ROLE_CONTENT = """# Role
     Professional Fact-Checker (Executive Summary Mode
 
     # Task
-    Extract only the MAIN objective, verifiable claims. Ignore minor details,
+    1. Write a 1-3 sentence executive summary of the input text, capturing the overall gist and main points.
+    2. Extract only the MAIN objective, verifiable claims. Ignore minor details,
     repetitive updates, subjective information or trivial data points.
 
     # Constraints
@@ -28,10 +29,16 @@ CLAIM_EXTRACTION_DEVELOPER_ROLE_CONTENT = """# Role
     5. If a claim is subjective, emotional, or an opinion (e.g., "I love...", "I don't like..."), DO NOT include it.
 
     # Output Format
+    [SUMMARY]
+    Return a concise executive summary of the overall input text in 1-3 sentences.
+    [CLAIMS]
     Return ONLY the claims as a plain text list, with each claim on a NEW LINE starting with a pipe character (|). 
     Do not use JSON, markdown, or introductory text.
 
     # Example Output
+    [SUMMARY]
+    The article discusses Iran's nuclear program and the US response, as well as general information about fish and maritime traffic in the Strait of Hormuz.
+    [CLAIMS]
     |President Trump issued a 48-hour deadline to Iran.
     |Fish all live in the sea.
     |Traffic through the Strait of Hormuz remains limited."""
@@ -146,7 +153,7 @@ def get_openai_client() -> OpenAI:
 #             "Failed to initialize OpenAI client. Check logs for details.")
 
 
-def get_claims_from_text(text_input: str) -> list[Claim]:
+def get_summary_and_claims_from_text(text_input: str) -> list[Claim]:
     """This function uses an LLM to extract a list of claims made
     in a body of text.
 
@@ -157,13 +164,20 @@ def get_claims_from_text(text_input: str) -> list[Claim]:
     # client = connect_to_openai()
     client = get_openai_client()
 
-    claims_string = query_llm(text_input, client,
+    raw_output = query_llm(text_input, client,
                               CLAIM_EXTRACTION_DEVELOPER_ROLE,
                               "Successfully extracted claims from text input.")
+    if "[CLAIMS]" in raw_output:
+        parts = raw_output.split("[CLAIMS]")
+        summary_part = parts[0].replace("[SUMMARY]", "").strip()
+        claims_part = parts[1].strip()
+    else:
+        summary_part = "Summary unavailable."
+        claims_part = raw_output
 
-    claims_list = convert_claims_string_to_list(claims_string)
+    claims_list = convert_claims_string_to_list(claims_part)
 
-    return claims_list
+    return summary_part, claims_list
 
 
 def convert_claims_string_to_list(claims_string: str) -> list[Claim]:
@@ -178,7 +192,6 @@ def convert_claims_string_to_list(claims_string: str) -> list[Claim]:
     validate_claims_string(claims_string)
 
     claims_list = re.split(r'\n|\|', claims_string)
-
     claims_list = [claim.strip()
                    for claim in claims_list if claim.strip() != ""]
 
@@ -329,7 +342,8 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
     result = []
 
     llm_response = llm_response.strip()
-    claims = re.split(r'\n\|', llm_response)
+    # claims = re.split(r'\n\|', llm_response)
+    claims = [c for c in llm_response.split("|") if c.strip()]
 
     for claim in claims:
         info = re.split(r"',\s*'", claim)
@@ -337,7 +351,7 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
         claim_dict = {
             "claim": info[0].replace("|", "").replace("'", ""),
             "rating": info[1].upper().strip(),
-            "explanation": (info[2] + " " + info[3].replace("'", "")).strip()
+            "evidence": (info[2] + " " + info[3].replace("'", "")).strip()
         }
 
         result.append(claim_dict)
@@ -386,7 +400,7 @@ def create_llm_prompt(
             ]
         )
 
-    prompt = f"""Evaluate the following claims based on
+    prompt = f"""Evaluate the following {len(claims)} individual claims separately based on
                 the provided Wikipedia evidence and RAG facts. 
                 For each claim, assign a rating of 
                 SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE
@@ -412,7 +426,7 @@ def create_llm_prompt(
 6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
 
 ### Output Format:
-|'claim_made','rating','[Explanation]', 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
+|'claim_made','rating','[Evidence]', 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
 
     return prompt
 
@@ -460,7 +474,7 @@ def validate_response_format(response: str) -> None:
         raise ValueError(
             "Response missing a valid uppercase rating."
         )
-
+    
 
 if __name__ == "__main__":
     # Example usage
