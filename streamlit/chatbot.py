@@ -15,7 +15,7 @@ from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_s
                                  get_summary_and_claims_from_text,
                                  send_claims_to_rag_lambda,
                                  send_claims_to_wiki_lambda, rate_claims_via_llm,
-                                 setup_logging,
+                                 setup_logging, convert_claims_string_to_list,
                                  Claim)
 import db_logic as db
 import history_dashboard as history
@@ -61,7 +61,7 @@ def display_claim_and_rating(claim: dict, box_design) -> None:
 
     with ratings:
         st.markdown(f"**Rating:** {claim['rating']}")
-        st.markdown(f"**Evidence:** {claim['evidence']}")
+        st.markdown(f"**Evidence:** {claim['evidence']}. Sources: {', '.join(claim['sources'])}")
 
 
 def render_and_parse_input_boxes() -> tuple[str, str, str]:
@@ -424,3 +424,24 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    # unrated_claims = convert_claims_string_to_list(
+    #     ['[The European Union has offered an emergency brake mechanism to limit surges in youth mobility visas to the UK.]',
+    #     '[The United Kingdom is demanding a numerical cap (ceiling) on entrants to the youth mobility scheme.]', 
+    #     '[A European Union official suggested a compromise: a monitoring-based mechanism to halt visa issuance if participant numbers become unacceptably high, rather than an upfront cap.]', 
+    #     '[British officials view the emergency brake concept as a non-starter and insist on a definite numeric limit before the scheme starts.]', 
+    #     '[The United Kingdom has drawn a parallel with Australia’s scheme, which has a cap of 45,000 participants.]', 
+    #     '[Nick Thomas-Symonds stated that any scheme should be capped and time-limited.]',
+    #      '[The European Union and the United Kingdom have disagreements over whether EU participants should pay the domestic or international student fee.]', 
+    #      '[A separate proposal sought by European negotiators is home fee status for EU students studying in Britain, which the UK has rejected.]', 
+    #      '[The cross-party UK Trade and Business Commission suggested a first-year participant limit of 44,000 to avoid impacting net migration figures.]', 
+    #      '[In 2024, Britain issued 24,400 youth mobility visas to non-EU partner countries, while about 68,495 UK citizens relocated to Australia, New Zealand, and Canada, indicating a net outflow above 44,000.]', 
+    #      '[The talks are one of three priority areas in negotiations ahead of the summit between UK and EU leaders planned for late June or early July.]']
+
+    # )
+    # wiki_context, rag_context = get_context_from_lambdas(unrated_claims)
+
+    # rated_claims_raw = rate_claims_via_llm(
+    #     unrated_claims, wiki_context, rag_context)
+
+    # rated_claims = convert_llm_response_to_dict(rated_claims_raw)

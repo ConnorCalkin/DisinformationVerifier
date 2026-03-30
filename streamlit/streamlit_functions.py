@@ -10,11 +10,12 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import boto3
 import json 
+from pydantic import BaseModel
 
 load_dotenv()
 
 CLAIM_EXTRACTION_DEVELOPER_ROLE_CONTENT = """# Role
-    Professional Fact-Checker (Executive Summary Mode
+    Professional Fact-Checker (Executive Summary Mode)
 
     # Task
     1. Write a 1-3 sentence executive summary of the input text, capturing the overall gist and main points.
@@ -28,20 +29,22 @@ CLAIM_EXTRACTION_DEVELOPER_ROLE_CONTENT = """# Role
     4. No Overlap: Ensure claims are mutually exclusive.
     5. If a claim is subjective, emotional, or an opinion (e.g., "I love...", "I don't like..."), DO NOT include it.
 
-    # Output Format
-    [SUMMARY]
-    Return a concise executive summary of the overall input text in 1-3 sentences.
-    [CLAIMS]
-    Return ONLY the claims as a plain text list, with each claim on a NEW LINE starting with a pipe character (|). 
-    Do not use JSON, markdown, or introductory text.
+    """
+    # # Output Format
+    # [SUMMARY]
+    # Return a concise executive summary of the overall input text in 1-3 sentences.
+    # [CLAIMS]
+    # Return ONLY the claims as a plain text list, with each claim on a NEW LINE starting with a pipe character (|). 
+    # Do not use JSON, markdown, or introductory text."""
 
-    # Example Output
-    [SUMMARY]
-    The article discusses Iran's nuclear program and the US response, as well as general information about fish and maritime traffic in the Strait of Hormuz.
-    [CLAIMS]
-    |President Trump issued a 48-hour deadline to Iran.
-    |Fish all live in the sea.
-    |Traffic through the Strait of Hormuz remains limited."""
+    # # Example Output
+    # [SUMMARY]
+    # The article discusses Iran's nuclear program and the US response, as well as general information about fish and maritime traffic in the Strait of Hormuz.
+    # [CLAIMS]
+    # |President Trump issued a 48-hour deadline to Iran.
+    # |Fish all live in the sea.
+    # |Traffic through the Strait of Hormuz remains limited.
+    # """
 
 CLAIM_EXTRACTION_DEVELOPER_ROLE = {
     "role": "developer",
@@ -65,12 +68,13 @@ Evaluate "Claims" against the provided "Factual Context" (Wikipedia or RAG chunk
 2. Tone: Be concise. One to two sentences max for the explanation.
 3. Formatting: Return ONLY the results. No intro/outro text. DO INCLUDE " ' " characters in the response
 to allow for clear parsing of the explanation and sources.
-
-
-# Output Format
-Return each result on a NEW LINE starting with a pipe character in this exact format:
-|'claim_made', 'rating', '[Explanation sentence]', 'Sources: [Specify "Wikipedia" and the URL(s) and the specific URL(s) provided in the RAG facts]' 
+4. Return The source URL(s) for each claim if available.
 """
+
+# # Output Format
+# Return each result on a NEW LINE starting with a pipe character in this exact format:
+# |'claim_made', 'rating', '[Explanation sentence]', 'Sources: [Specify "Wikipedia" and the URL(s) and the specific URL(s) provided in the RAG facts]' 
+# """
 
 CLAIM_RATING_DEVELOPER_ROLE = {
     "role": "developer",
@@ -86,6 +90,19 @@ class Claim:
     def __init__(self, claim_text: str, category: str = None):
         self.claim_text = claim_text
         self.category = category
+
+class RatedClaimResponse(BaseModel):
+    rated_claims: list[RatedClaim]
+
+class RatedClaim(BaseModel):
+    claim:str
+    rating: str
+    explanation: str
+    sources: list[str]
+
+class UnratedClaimResponse(BaseModel):
+    summary: str
+    claims: list[str]
 
 
 def setup_logging():
@@ -166,21 +183,18 @@ def get_summary_and_claims_from_text(text_input: str) -> list[Claim]:
 
     raw_output = query_llm(text_input, client,
                               CLAIM_EXTRACTION_DEVELOPER_ROLE,
-                              "Successfully extracted claims from text input.")
-    if "[CLAIMS]" in raw_output:
-        parts = raw_output.split("[CLAIMS]")
-        summary_part = parts[0].replace("[SUMMARY]", "").strip()
-        claims_part = parts[1].strip()
-    else:
-        summary_part = "Summary unavailable."
-        claims_part = raw_output
+                              "Successfully extracted claims from text input.", UnratedClaimResponse)
 
-    claims_list = convert_claims_string_to_list(claims_part)
+    summary_part = raw_output.summary
+
+    claims_list = convert_claims_string_to_list(raw_output.claims)
+
+
 
     return summary_part, claims_list
 
 
-def convert_claims_string_to_list(claims_string: str) -> list[Claim]:
+def convert_claims_string_to_list(claims_list: list[str]) -> list[Claim]:
     """This function takes the string output from the LLM 
     and converts it into a list of Claim objects.
     The LLM output is expected to be in the format:
@@ -189,19 +203,13 @@ def convert_claims_string_to_list(claims_string: str) -> list[Claim]:
     |Claim 3
     """
 
-    validate_claims_string(claims_string)
-
-    claims_list = re.split(r'\n|\|', claims_string)
-    claims_list = [claim.strip()
-                   for claim in claims_list if claim.strip() != ""]
-
     logging.info("Successfully converted claims string to list")
 
     return [Claim(claim_text=claim) for claim in claims_list]
 
 
 def query_llm(prompt: str, client: OpenAI, developer_role: dict,
-              succces_log: str) -> str:
+              succces_log: str, response_format: object) -> str:
     """
     Queries the LLM for high-level objective claims returned as a 
     newline-separated string for maximum token efficiency.
@@ -211,20 +219,21 @@ def query_llm(prompt: str, client: OpenAI, developer_role: dict,
         raise ValueError("Prompt cannot be empty or None.")
 
     try:
-        response = client.chat.completions.create(
+        response = client.responses.parse(
             model="gpt-5-nano",
-            messages=[developer_role,
+            input=[developer_role,
                       {
                           "role": "user",
                           "content": prompt
                       }
                       ],
             temperature=1,
-            reasoning_effort="low",
-            max_completion_tokens=2000
+            reasoning={"effort": "low"},
+            text_format=response_format,
         )
+
         logging.info(succces_log)
-        return response.choices[0].message.content
+        return response.output_parsed
 
     except Exception as e:
         logging.error(f"Error querying LLM: {e}")
@@ -324,14 +333,17 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
 
     response = query_llm(prompt, client,
                          CLAIM_RATING_DEVELOPER_ROLE,
-                         "Successfully rated claims based on Wikipedia and RAG context.")
+                         "Successfully rated claims based on Wikipedia and RAG context.", RatedClaimResponse)
 
-    logging.info(f"LLM returned response: {response[:50]} ...")
+    logging.info(f"""LLM returned response: {response.rated_claims[0].claim}
+                                            {response.rated_claims[0].rating}
+                                            {response.rated_claims[0].explanation}
+                                            {response.rated_claims[0].sources}""")
 
     return response
 
 
-def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
+def convert_llm_response_to_dict(llm_response: RatedClaimResponse) -> list[dict]:
     """Converts LLM rating output string to a
     list of structured claim dicts.
 
@@ -339,26 +351,21 @@ def convert_llm_response_to_dict(llm_response: str) -> list[dict]:
     explanation, sources.
     """
 
-    result = []
-
-    llm_response = llm_response.strip()
-    # claims = re.split(r'\n\|', llm_response)
-    claims = [c for c in llm_response.split("|") if c.strip()]
-
-    for claim in claims:
-        info = re.split(r"',\s*'", claim)
-
-        claim_dict = {
-            "claim": info[0].replace("|", "").replace("'", ""),
-            "rating": info[1].upper().strip(),
-            "evidence": (info[2] + " " + info[3].replace("'", "")).strip()
+    claim_dicts = [
+        {
+            "claim": rated_claim.claim,
+            "rating": rated_claim.rating,
+            "evidence": rated_claim.explanation,
+            "sources": rated_claim.sources
         }
+        for rated_claim in llm_response.rated_claims if (rated_claim.claim and 
+                                                         rated_claim.rating and 
+                                                            rated_claim.explanation)
+    ]
+    
+    logging.info(f"Claims and ratings obtained: {claim_dicts[:3]}")
 
-        result.append(claim_dict)
-
-    logging.info(f"Claims and ratings obtained: {result[:3]}")
-
-    return result
+    return claim_dicts
 
 
 def create_llm_prompt(
@@ -424,9 +431,10 @@ def create_llm_prompt(
 4. Identify if the information came from "Wikipedia", a URL, or multiple.
 5. DO NOT include any sources if the claim is rated UNSURE.
 6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
+"""
 
-### Output Format:
-|'claim_made','rating','[Evidence]', 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
+# ### Output Format:
+# |'claim_made','rating','[Evidence]', 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
 
     return prompt
 
