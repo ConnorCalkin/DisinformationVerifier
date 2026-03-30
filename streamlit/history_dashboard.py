@@ -54,17 +54,24 @@ def render_history_list_screen(screen_placeholder) -> None:
             return
         
         for item in history_list:
-            with st.container(border=True):
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.write(f"**{item['created_at'].strftime('%Y-%m-%d %H:%M')}**")
-                    st.write(f"*{item['input_text'][:100]}...*")
-                    st.write(f"**Summary:** {item['input_summary'][:100]}...")
-                with col2:
-                    if st.button("View Full Details", key=f"detail_{item['input_id']}"):
-                        st.session_state.page = "Input Detail"
-                        st.session_state.selected_input_id = item["input_id"]
-                        st.rerun()
+            render_history_list_button(item)
+            st.divider()
+
+
+def render_history_list_button(item: dict) -> None:
+    """ Helper function for abstraction of button rendering in the history list screen. """
+    with st.container(border=True):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.write(
+                f"**{item['created_at'].strftime('%Y-%m-%d %H:%M')}**")
+            st.write(f"*{item['input_text'][:100]}...*")
+            st.write(f"**Summary:** {item['input_summary'][:100]}...")
+        with col2:
+            if st.button("View Full Details", key=f"detail_{item['input_id']}"):
+                st.session_state.page = "Input Detail"
+                st.session_state.selected_input_id = item["input_id"]
+                st.rerun()
 
 
 def render_history_detail_screen(input_id: int, screen_placeholder) -> None:
