@@ -120,7 +120,7 @@ def test_lambda_logic_simple_response(mock_post):
     mock_response = mock_post.return_value
 
     mock_response.json.return_value = {
-        "message": "mock_text", "status_code": 200}
+        "text": "mock_text", "status_code": 200}
 
     mock_response.status_code = 200
 
@@ -249,7 +249,7 @@ def test_create_llm_prompt():
 
     prompt = create_llm_prompt(claims_list, wiki_list, rag_list)
 
-    assert prompt == """Evaluate the following claims based on
+    assert prompt == f"""Evaluate the following {len(claims_list)} individual claims separately based on
                 the provided Wikipedia evidence and RAG facts. 
                 For each claim, assign a rating of 
                 SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE
@@ -277,7 +277,7 @@ def test_create_llm_prompt():
 6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
 
 ### Output Format:
-|'claim_made','rating','[Explanation]', 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
+|'claim_made','rating','[Evidence]', 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
 
 
 def test_validate_inputs_for_prompt():
@@ -309,13 +309,13 @@ def test_convert_llm_response_to_dict_1():
         {
             "claim": "The sky is a really light blue.",
             "rating": "SUPPORTED",
-            "explanation": "The sources indicate the sky appears blue due to atmospheric scattering and is described as blue during the day."
+            "evidence": "The sources indicate the sky appears blue due to atmospheric scattering and is described as blue during the day."
             " Sources: Wiki, https://example.com/sky",
         },
         {
             "claim": "The grass is green.",
             "rating": "UNSURE",
-            "explanation": "No evidence in the provided Wiki or RAG facts about grass color. Sources: None"
+            "evidence": "No evidence in the provided Wiki or RAG facts about grass color. Sources: None"
         }
     ]
 
@@ -332,7 +332,7 @@ def test_convert_llm_response_to_dict_2():
         {
             "claim": "Donald trump is 30",
             "rating": "CONTRADICTED",
-            "explanation": "The provided Wikipedia article states Donald Trump was born in 1946 and was the oldest president at 78 during his second term, not 30. Sources: Wiki"
+            "evidence": "The provided Wikipedia article states Donald Trump was born in 1946 and was the oldest president at 78 during his second term, not 30. Sources: Wiki"
         }]
 
 

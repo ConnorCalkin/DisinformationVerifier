@@ -12,13 +12,13 @@ import plotly.graph_objects as go
 from dotenv import load_dotenv
 import logging
 from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
-                                 get_claims_from_text,
+                                 get_summary_and_claims_from_text,
                                  send_claims_to_rag_lambda,
                                  send_claims_to_wiki_lambda, rate_claims_via_llm,
                                  setup_logging,
                                  Claim)
-
-
+import db_logic as db
+import history_dashboard as history
 import streamlit as st
 
 
@@ -30,13 +30,19 @@ RAG_URL = os.getenv("RAG_URL")
 SCRAPE_URL = os.getenv("SCRAPE_URL")
 
 CATEGORY_COLORS = {
-    'SUPPORTED': "#28a745",
-    'MISLEADING': "#ffa421",
-    'CONTRADICTED': "#ff4b4b",
-    'UNSURE': "#17a2b8"
+    'SUPPORTED': "#9fe9b0",
+    'MISLEADING': "#f3be74",
+    'CONTRADICTED': "#e67575",
+    'UNSURE': "#8de6f4"
 }
 
 setup_logging()
+
+if "page" not in st.session_state:
+    st.session_state.page = "Input"
+
+if "selected_input_id" not in st.session_state:
+    st.session_state.selected_input_id = None
 
 st.set_page_config(layout="wide")
 
@@ -55,10 +61,10 @@ def display_claim_and_rating(claim: dict, box_design) -> None:
 
     with ratings:
         st.markdown(f"**Rating:** {claim['rating']}")
-        st.markdown(f"**Evidence:** {claim['explanation']}")
+        st.markdown(f"**Evidence:** {claim['evidence']}")
 
 
-def render_and_parse_input_boxes() -> tuple[str, str, str, str]:
+def render_and_parse_input_boxes() -> tuple[str, str, str]:
     """
     Set up input fields for user to enter an article, url or claim.
 
@@ -90,41 +96,15 @@ def render_and_parse_input_boxes() -> tuple[str, str, str, str]:
         with source_input:
             source_type = st.selectbox(
                 label='Source type:',
-                options=['News Article',
-                         'Social Media', 'Other'],
-                key='source_type'
+                options=['Choose an option...', 'TikTok', 'Instagram', 'Facebook', 'The Guardian', 'The Daily Mail', 'The Sun', 'AI', 'Twitter/X'],
+                key='source_type',
+                index=0
             )
+        if source_type == 'Choose an option...':
+            st.warning("Please select a source type to continue.")
+            st.stop()  # Prevent further execution until a valid source type is selected
 
-        source = render_and_parse_optional_input_box(source_type)
-
-    return user_input, input_format, source_type, source
-
-
-def render_and_parse_optional_input_box(source_type) -> str:
-    """Set up follow up input fields based on the source type selected by the user."""
-
-    if source_type == 'News Article':
-        source = st.text_input(
-            label='Article Source (Optional):',
-            placeholder='e.g. BBC, CNN, etc.',
-            key='news_source'
-        )
-
-    if source_type == 'Social Media':
-        source = st.text_input(
-            label='Platform (Optional):',
-            placeholder='e.g. TikTok, Facebook, etc.',
-            key='social_platform'
-        )
-
-    if source_type == 'Other':
-        source = st.text_input(
-            label='Source Description (Optional):',
-            placeholder='e.g. YouTube video, podcast, etc.',
-            key='other_source'
-        )
-
-    return source
+    return user_input, input_format, source_type
 
 
 def add_grey_background(y_positions: list[str]) -> go.Figure:
@@ -218,23 +198,24 @@ def render_claims(claims: list[dict]) -> None:
             display_claim_and_rating(claim, box_design)
 
 
-def get_unrated_claims_from_input(user_input: str, input_format: str) -> list[Claim]:
+def get_unrated_claims_from_input(user_input: str, input_format: str) -> tuple[str, list[Claim]]:
     """Extract claims from the user input based on the input format."""
 
     if input_format == 'Claim':
+        summary = f"Verification of the following claim: {user_input.title()}"
         unrated_claims = [Claim(claim_text=user_input)]
+        return summary, unrated_claims
 
     if input_format == 'URL':
         article_body = send_url_to_web_scraping_lambda(
             user_input, SCRAPE_URL)
-
-        unrated_claims = get_claims_from_text(article_body)
+        return get_summary_and_claims_from_text(article_body)
 
     if input_format == 'Article Text':
 
-        unrated_claims = get_claims_from_text(user_input)
+        return get_summary_and_claims_from_text(user_input)
 
-    return unrated_claims
+    return "No summary generated", []  # Default return for unsupported formats, should not reach here due to input validation
 
 
 def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], list[dict]]:
@@ -255,7 +236,7 @@ def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], l
     return wiki_context, rag_context
 
 
-def get_claims_and_ratings_from_input(user_input: str, input_format: str) -> list[dict] | None:
+def get_claims_and_ratings_from_input(user_input: str, input_format: str, source_type: str) -> tuple[str, list[dict]] | None:
     """
     Main process function for RAG interface.
 
@@ -266,20 +247,33 @@ def get_claims_and_ratings_from_input(user_input: str, input_format: str) -> lis
 
     if user_input.strip() != "":
 
-        unrated_claims = get_unrated_claims_from_input(
+        summary, unrated_claims = get_unrated_claims_from_input(
             user_input, input_format)
 
         wiki_context, rag_context = get_context_from_lambdas(unrated_claims)
 
-        rated_claims = rate_claims_via_llm(
+        rated_claims_raw = rate_claims_via_llm(
             unrated_claims, wiki_context, rag_context)
 
-        rated_claims = convert_llm_response_to_dict(rated_claims)
+        rated_claims = convert_llm_response_to_dict(rated_claims_raw)
 
-        return rated_claims
+        sup, mis, con, uns = calculate_metrics(rated_claims)
+
+        db.archive_user_input(
+            input_text=user_input,
+            input_summary=summary[:250],
+            source_type_name=source_type,
+            supported=sup,
+            contradicted=con,
+            misleading=mis,
+            unsure=uns,
+            claims=rated_claims
+        )
+        return summary, rated_claims
+    return None
 
 
-def verify_button(user_input: str, input_format: str) -> list[dict] | None:
+def verify_button(user_input: str, input_format: str, source_type: str) -> tuple[str, list[dict]] | None:
     """Handle button click event and return claims with ratings."""
 
     button_clicked = st.button('Verify!')
@@ -287,12 +281,17 @@ def verify_button(user_input: str, input_format: str) -> list[dict] | None:
     if button_clicked and user_input.strip() == "":
         st.warning("Please enter an article, URL, or claim to verify.")
         return None
+    
+    if button_clicked and source_type == 'Choose an option...':
+        st.warning("Please select a source type to continue.")
+        return None
 
     if button_clicked:
-        claims_and_ratings = get_claims_and_ratings_from_input(
-            user_input, input_format)
-
-        return claims_and_ratings
+        result = get_claims_and_ratings_from_input(
+            user_input, input_format, source_type)
+        if result:
+            summary, claims_and_ratings = result
+            return summary, claims_and_ratings
 
     return None
 
@@ -358,15 +357,16 @@ def calculate_metrics(claims_and_rating: list[dict]) -> tuple[float, float, floa
     )
 
 
-def render_input_screen(screen_placeholder) -> list[dict]:
+def render_input_screen(screen_placeholder) -> tuple[str, list[dict]] | None:
     """Render the initial input screen for the user to enter an article, URL or claim."""
 
     with screen_placeholder.container(border=True):
 
-        user_input, input_format, _, _ = render_and_parse_input_boxes()
+        user_input, input_format, source_type = render_and_parse_input_boxes()
 
         try:
-            claims_and_ratings = verify_button(user_input, input_format)
+            result = verify_button(user_input, input_format, source_type)
+            return result
         except RuntimeError as e:
             st.error(f"An error occurred during verification: {e}")
             return None
@@ -374,36 +374,53 @@ def render_input_screen(screen_placeholder) -> list[dict]:
             st.error(f"An error occurred while processing the claims: {e}")
             return None
 
-        # TODO: Add a function to store claims, ratings, source_type and source in a database for future analysis.
 
-    return claims_and_ratings
-
-
-def render_results_screen(claims_and_ratings: list[dict], screen_placeholder) -> None:
+def render_results_screen(summary: str, claims_and_ratings: list[dict], screen_placeholder) -> None:
     """Render the results screen to display claims and their ratings."""
 
     screen_placeholder.empty()
 
-    if claims_and_ratings == []:
+    if not claims_and_ratings:
         st.warning(
             "No claims were extracted from the input. Please try again with a different article, URL or claim.")
         return
 
     with st.container(border=True):
+        st.subheader("Input Summary")
+        st.info(summary)
+
         render_trust_metrics(claims_and_ratings)
 
     with st.container(border=True, height=300):
         render_claims(claims_and_ratings)
+    
+    if st.button('Verify another claim?'):
+        st.rerun()
 
-
-if __name__ == "__main__":
+def main():
+    history.render_sidebar()
 
     placeholder = st.empty()
 
-    claims_and_ratings = render_input_screen(placeholder)
+    st.session_state.page = st.session_state.get("page", "Input")
 
-    if claims_and_ratings is not None:
-        render_results_screen(claims_and_ratings, placeholder)
+    if st.session_state.page == "Input":
+        result = render_input_screen(placeholder)
 
-        if st.button('Verify another claim?'):
+        if result is not None:
+            summary, claims_and_ratings = result
+            render_results_screen(summary, claims_and_ratings, placeholder)
+
+    elif st.session_state.page == "Input History List":
+        history.render_history_list_screen(placeholder)
+    
+    elif st.session_state.page == "Input Detail":
+        if st.session_state.selected_input_id:
+            history.render_history_detail_screen(st.session_state.selected_input_id, placeholder)
+        else:
+            st.warning("No record selected. Returning to input screen.")
+            st.session_state.page = "Input"
             st.rerun()
+
+if __name__ == "__main__":
+    main()
