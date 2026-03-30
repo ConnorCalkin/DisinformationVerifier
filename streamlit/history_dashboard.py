@@ -4,13 +4,6 @@ import chatbot as chat
 import plotly.graph_objects as go
 import chatbot as chat
 
-
-if "page" not in st.session_state:
-    st.session_state.page = "Input History"
-
-if "selected_input_id" not in st.session_state:
-    st.session_state.selected_input_id = None
-
 # -- SIDEBAR: CHAT HISTORY NAVIGATION --
 def render_sidebar():
     with st.sidebar:
