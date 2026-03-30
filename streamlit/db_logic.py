@@ -65,6 +65,8 @@ def fetch_input_details(input_id: int) -> dict:
     '''
     Fetches the details of a specific input, including claims and metrics.
     '''
+
+
     query = """
             SELECT 
                 i.input_id,
@@ -87,10 +89,11 @@ def fetch_input_details(input_id: int) -> dict:
             LEFT JOIN 
                 metrics m ON i.metrics_id = m.metrics_id
             LEFT JOIN
-                source_type s ON c.source_type_id = s.source_type_id
+                source_type s ON i.source_type_id = s.source_type_id  -- FIXED: changed c. to i.
             WHERE 
                 i.input_id = %s
             """
+    
     return run_query(query, (input_id,))
 
 
@@ -124,12 +127,12 @@ def input_table_insert_execution(cur, input_text: str, input_summary: str, sourc
     input_id = cur.fetchone()['input_id']
     return input_id
 
-def claim_table_insert_execution(cur, input_id: int, claim_text: str, rating: str, evidence: str) -> None:
+def claim_table_insert_execution(cur, input_id: int, claim: str, rating: str, evidence: str) -> None:
     """ Helper function to generate the SQL query for inserting claims. """
     cur.execute("""
         INSERT INTO claim (input_id, claim_text, rating, evidence)
         VALUES (%s, %s, %s, %s)
-        """, (input_id, claim_text, rating, evidence))
+        """, (input_id, claim, rating, evidence))
 
 
 def archive_user_input(input_text: str,
@@ -160,7 +163,7 @@ def archive_user_input(input_text: str,
                                                     source_type_id, metrics_id)
             # Insert claims
             for claim in claims:
-                claim_table_insert_execution(cur, input_id, claim['claim_text'],
+                claim_table_insert_execution(cur, input_id, claim['claim'],
                                             claim['rating'], claim['evidence'])
             conn.commit()
             logging.info(
@@ -169,6 +172,7 @@ def archive_user_input(input_text: str,
         if conn:
             conn.rollback()
         logging.error(f"Error archiving user input: {e}")
+        print(f"Error archiving user input: {e}")
         return False
     finally:
         if conn:
