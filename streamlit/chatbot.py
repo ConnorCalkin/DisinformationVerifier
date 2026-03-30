@@ -401,11 +401,13 @@ def render_results_screen(summary: str, claims_and_ratings: list[dict], screen_p
 
 
 def main():
+
+    if "page" not in st.session_state:
+        st.session_state.page = "Input"
+
     history.render_sidebar()
 
     placeholder = st.empty()
-
-    st.session_state.page = st.session_state.get("page", "Input")
 
     if st.session_state.page == "Input":
         result = render_input_screen(placeholder)

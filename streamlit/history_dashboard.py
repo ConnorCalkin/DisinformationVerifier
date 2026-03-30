@@ -37,8 +37,8 @@ def render_sidebar():
                     st.session_state.page = "Input Detail"
                     st.session_state.selected_input_id = item["input_id"]
                     st.rerun()
-        except:
-            pass
+        except Exception as e:
+            st.error(f"Error fetching input history: {e}")
 
 
 def render_history_list_screen(screen_placeholder) -> None:
