@@ -84,6 +84,7 @@ jobs:
           service: ${{ matrix.service.ecs_service }}
           cluster: ${{ matrix.service.ecs_cluster }}
           wait-for-service-stability: true
+          force-new-deployment: true
 
 
           
