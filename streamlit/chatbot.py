@@ -296,7 +296,7 @@ def verify_button(user_input: str, input_format: str, source_type: str) -> tuple
         with placeholder.container():
             jumping_loader()
             log_text = st.empty()
-            # log_text.write("Initializing...")
+            log_text.write("searching for relevant information...")
 
         result = get_claims_and_ratings_from_input(
             user_input,
