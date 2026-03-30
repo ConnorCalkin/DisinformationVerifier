@@ -11,6 +11,8 @@ import os
 import plotly.graph_objects as go
 from dotenv import load_dotenv
 import logging
+from loading_animation import jumping_loader
+from about_us import render_about_us
 from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
                                  get_summary_and_claims_from_text,
                                  send_claims_to_rag_lambda,
@@ -20,7 +22,6 @@ from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_s
 import db_logic as db
 import history_dashboard as history
 import streamlit as st
-
 
 load_dotenv()
 
@@ -35,10 +36,10 @@ INPUT_FORMAT_ARTICLE = 'Article Text'
 DEFAULT_SOURCE_OPTION = 'Choose an option...'
 
 CATEGORY_COLORS = {
-    'SUPPORTED': "#9fe9b0",
-    'MISLEADING': "#f3be74",
-    'CONTRADICTED': "#e67575",
-    'UNSURE': "#8de6f4"
+    'SUPPORTED': "#c1eaca",
+    'MISLEADING': "#f0edb9",
+    'CONTRADICTED': "#f0c1c1",
+    'UNSURE': "#b8e2f4"
 }
 
 
@@ -310,8 +311,28 @@ def render_verify_button(user_input: str, input_format: str, source_type: str) -
         return None
 
     if button_clicked:
+        if user_input.strip() == "":
+            st.warning("Please enter an article, URL, or claim to verify.")
+            return None
+
+        if source_type == 'Choose an option...':
+            st.warning("Please select a source type to continue.")
+            return None
+
+        placeholder = st.empty()
+        with placeholder.container():
+            jumping_loader()
+            log_text = st.empty()
+            log_text.write("searching for relevant information...")
+
         result = get_claims_and_ratings_from_input(
-            user_input, input_format, source_type)
+            user_input,
+            input_format,
+            source_type
+        )
+
+        placeholder.empty()
+
         if result:
             summary, claims_and_ratings, metrics = result
             return summary, claims_and_ratings, metrics
@@ -454,27 +475,9 @@ def main():
             st.session_state.page = "Input"
             st.rerun()
 
+    elif st.session_state.page == "About Us":
+        render_about_us()
+
 
 if __name__ == "__main__":
     main()
-
-    # unrated_claims = convert_claims_string_to_list(
-    #     ['[The European Union has offered an emergency brake mechanism to limit surges in youth mobility visas to the UK.]',
-    #     '[The United Kingdom is demanding a numerical cap (ceiling) on entrants to the youth mobility scheme.]',
-    #     '[A European Union official suggested a compromise: a monitoring-based mechanism to halt visa issuance if participant numbers become unacceptably high, rather than an upfront cap.]',
-    #     '[British officials view the emergency brake concept as a non-starter and insist on a definite numeric limit before the scheme starts.]',
-    #     '[The United Kingdom has drawn a parallel with Australia’s scheme, which has a cap of 45,000 participants.]',
-    #     '[Nick Thomas-Symonds stated that any scheme should be capped and time-limited.]',
-    #      '[The European Union and the United Kingdom have disagreements over whether EU participants should pay the domestic or international student fee.]',
-    #      '[A separate proposal sought by European negotiators is home fee status for EU students studying in Britain, which the UK has rejected.]',
-    #      '[The cross-party UK Trade and Business Commission suggested a first-year participant limit of 44,000 to avoid impacting net migration figures.]',
-    #      '[In 2024, Britain issued 24,400 youth mobility visas to non-EU partner countries, while about 68,495 UK citizens relocated to Australia, New Zealand, and Canada, indicating a net outflow above 44,000.]',
-    #      '[The talks are one of three priority areas in negotiations ahead of the summit between UK and EU leaders planned for late June or early July.]']
-
-    # )
-    # wiki_context, rag_context = get_context_from_lambdas(unrated_claims)
-
-    # rated_claims_raw = rate_claims_via_llm(
-    #     unrated_claims, wiki_context, rag_context)
-
-    # rated_claims = convert_llm_response_to_dict(rated_claims_raw)
