@@ -11,6 +11,7 @@ import os
 import plotly.graph_objects as go
 from dotenv import load_dotenv
 import logging
+from about_us import render_about_us
 from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
                                  get_summary_and_claims_from_text,
                                  send_claims_to_rag_lambda,
@@ -20,7 +21,6 @@ from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_s
 import db_logic as db
 import history_dashboard as history
 import streamlit as st
-
 
 load_dotenv()
 
@@ -96,7 +96,8 @@ def render_and_parse_input_boxes() -> tuple[str, str, str]:
         with source_input:
             source_type = st.selectbox(
                 label='Source type:',
-                options=['Choose an option...', 'TikTok', 'Instagram', 'Facebook', 'The Guardian', 'The Daily Mail', 'The Sun', 'AI', 'Twitter/X'],
+                options=['Choose an option...', 'TikTok', 'Instagram', 'Facebook',
+                         'The Guardian', 'The Daily Mail', 'The Sun', 'AI', 'Twitter/X'],
                 key='source_type',
                 index=0
             )
@@ -215,7 +216,8 @@ def get_unrated_claims_from_input(user_input: str, input_format: str) -> tuple[s
 
         return get_summary_and_claims_from_text(user_input)
 
-    return "No summary generated", []  # Default return for unsupported formats, should not reach here due to input validation
+    # Default return for unsupported formats, should not reach here due to input validation
+    return "No summary generated", []
 
 
 def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], list[dict]]:
@@ -281,7 +283,7 @@ def verify_button(user_input: str, input_format: str, source_type: str) -> tuple
     if button_clicked and user_input.strip() == "":
         st.warning("Please enter an article, URL, or claim to verify.")
         return None
-    
+
     if button_clicked and source_type == 'Choose an option...':
         st.warning("Please select a source type to continue.")
         return None
@@ -393,9 +395,10 @@ def render_results_screen(summary: str, claims_and_ratings: list[dict], screen_p
 
     with st.container(border=True, height=300):
         render_claims(claims_and_ratings)
-    
+
     if st.button('Verify another claim?'):
         st.rerun()
+
 
 def main():
     history.render_sidebar()
@@ -413,14 +416,19 @@ def main():
 
     elif st.session_state.page == "Input History List":
         history.render_history_list_screen(placeholder)
-    
+
     elif st.session_state.page == "Input Detail":
         if st.session_state.selected_input_id:
-            history.render_history_detail_screen(st.session_state.selected_input_id, placeholder)
+            history.render_history_detail_screen(
+                st.session_state.selected_input_id, placeholder)
         else:
             st.warning("No record selected. Returning to input screen.")
             st.session_state.page = "Input"
             st.rerun()
+
+    elif st.session_state.page == "About Us":
+        render_about_us()
+
 
 if __name__ == "__main__":
     main()
