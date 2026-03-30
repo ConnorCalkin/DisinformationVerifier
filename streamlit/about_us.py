@@ -1,7 +1,14 @@
+"""functions to render about us page"""
+
 import streamlit as st
 
 
-def render_about_us():
+def render_about_us() -> None:
+    """
+    renders the about us page with information about the project,
+    our sources, and how to interpret the ratings.
+    """
+
     st.header("About Us")
     st.markdown("""
     Syft is an AI-powered fact-checking engine designed to provide transparency 
@@ -9,7 +16,17 @@ def render_about_us():
     but to show you what the data says.
     """)
 
-    # --- Process Overview Section ---
+    render_overview_section()
+    render_sources_section()
+    render_ratings_key_section()
+
+
+def render_overview_section() -> None:
+    """
+    renders the overview section of the about us page,
+    explaining how the system works.
+    """
+
     st.subheader("How It Works")
     with st.container(border=True):
         col1, col2, col3 = st.columns(3)
@@ -26,7 +43,13 @@ def render_about_us():
             st.write(
                 "An LLM compares the retrieved evidence against the claims to generate a rating and a detailed explanation.")
 
-    # --- Sources of Truth Section ---
+
+def render_sources_section() -> None:
+    """
+    renders the sources section of the about us page, 
+    listing our trusted sources of truth
+    """
+
     st.subheader("Our Sources of Truth")
     sources = [
         {"name": "Wikipedia", "url": "https://www.wikipedia.org",
@@ -44,10 +67,15 @@ def render_about_us():
             st.write(source['desc'])
             st.link_button(f"Visit {source['name']}", source['url'])
 
-    # --- Ratings Key Section ---
+
+def render_ratings_key_section() -> None:
+    """
+    renders the ratings key section of the about us page,
+    explaining the meaning of each rating.
+    """
+
     st.subheader("Understanding the Ratings")
 
-    # Matching your CATEGORY_COLORS from the main file
     cols = st.columns(2)
 
     with cols[0]:
