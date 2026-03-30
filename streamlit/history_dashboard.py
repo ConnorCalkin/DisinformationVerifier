@@ -2,6 +2,7 @@ import streamlit as st
 import db_logic as db
 import chatbot as chat
 import plotly.graph_objects as go
+import chatbot as chat
 
 
 if "page" not in st.session_state:
@@ -11,50 +12,34 @@ if "selected_input_id" not in st.session_state:
     st.session_state.selected_input_id = None
 
 # -- SIDEBAR: CHAT HISTORY NAVIGATION --
-with st.sidebar:
-    st.title("Navigation")
-    if st.button("➕ New Input", use_container_width=True):
-        st.session_state.page = "Input"
-        st.session_state.selected_input_id = None
-        st.rerun()
-    
-    if st.button("📜 Input History", use_container_width=True):
-        st.session_state.page = "Input History List"
-        st.session_state.selected_input_id = None
-        st.rerun()
-
-# Fetch and display input history
-try:
-    history_list = db.fetch_input_history_list()
-    for item in history_list:
-        date_str = item["created_at"].strftime("%Y-%m-%d %H:%M")
-        # Truncate to 50 chars and combine with a newline
-        label = f"{date_str}: {item['input_text'][:50]}...\nSummary: {item['input_summary'][:50]}..."
-
-        # When an item is clicked:
-        if st.button(label, key=f"sidebar_{item['input_id']}", use_container_width=True):
-            st.session_state.page = "Input Details"
-            st.session_state.selected_input_id = item["input_id"]
+def render_sidebar():
+    with st.sidebar:
+        st.title("Navigation")
+        if st.button("➕ New Input", use_container_width=True):
+            st.session_state.page = "Input"
+            st.session_state.selected_input_id = None
             st.rerun()
-except Exception as e:
-    st.error(f"Error loading input history: {e}")
 
+        st.divider()
+        
+        if st.button("📜 Input History", use_container_width=True):
+            st.session_state.page = "Input History List"
+            st.session_state.selected_input_id = None
+            st.rerun()
+        
+        st.divider()
+        st.caption("Quick Access (Last 5 Inputs)")
+        try:
+            history_items = db.fetch_input_history_list()
+            for item in history_items[:5]:  # Show only the 5 most recent entries
+                label = f"🕒 {item['created_at'].strftime('%H:%M')}: {item['input_text'][:20]}..."
+                if st.button(label, key=f"quick_{item['input_id']}", use_container_width=True):
+                    st.session_state.page = "Input Detail"
+                    st.session_state.selected_input_id = item["input_id"]
+                    st.rerun()
+        except:
+            pass
 
-# # --- MAIN CONTENT ROUTER ---
-# placeholder = st.empty()
-
-# if st.session_state.page == "Input":
-#     # EXISTING LOGIC:
-#     render_input_screen(placeholder)
-
-# elif st.session_state.page == "Input History List":
-#     # 2. New History List Logic
-#     render_history_list_screen(placeholder)
-
-# elif st.session_state.page == "Input Detail":
-#     # 3. New History Detail Logic
-#     render_history_detail_screen(
-#         st.session_state.selected_input_id, placeholder)
 
 def render_history_list_screen(screen_placeholder) -> None:
     """
@@ -62,21 +47,24 @@ def render_history_list_screen(screen_placeholder) -> None:
     """
     with screen_placeholder.container():
         st.header("Previous Input History")
-        try:
-            history_list = db.fetch_input_history_list()
-            if not history_list:
-                st.info("No input history found. Start by verifying a claim!")
-                return
-            
-            for item in history_list:
-                date_str = item["created_at"].strftime("%Y-%m-%d %H:%M")
-                button_label = (f"📅{date_str}| 📝 {item['input_text'][:50]}...\nSummary: {item['input_summary'][:50]}...")
-                if st.button(button_label, key=f"sidebar_{item['input_id']}", use_container_width=True):
-                    st.session_state.page = "Input Detail"
-                    st.session_state.selected_input_id = item["input_id"]
-                    st.rerun()
-        except Exception as e:
-            st.error(f"Error loading input history: {e}")
+        history_list = db.fetch_input_history_list()
+
+        if not history_list:
+            st.info("No input history found. Start by verifying a claim!")
+            return
+        
+        for item in history_list:
+            with st.container(border=True):
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.write(f"**{item['created_at'].strftime('%Y-%m-%d %H:%M')}**")
+                    st.write(f"*{item['input_text'][:100]}...*")
+                    st.write(f"**Summary:** {item['input_summary'][:100]}...")
+                with col2:
+                    if st.button("View Full Details", key=f"detail_{item['input_id']}"):
+                        st.session_state.page = "Input Detail"
+                        st.session_state.selected_input_id = item["input_id"]
+                        st.rerun()
 
 
 def render_history_detail_screen(input_id: int, screen_placeholder) -> None:
@@ -89,25 +77,21 @@ def render_history_detail_screen(input_id: int, screen_placeholder) -> None:
 
     # 2. Format the data to match your existing UI logic
     # We turn the database rows into the dictionary list your functions expect
-    formatted_claims = [
-        {
+    formatted_claims = []
+    for r in rows:
+        formatted_claims.append({
             'claim': r['claim_text'],
             'rating': r['rating'],
             'evidence': r['evidence']
-        } for r in rows
-    ]
-
+        })
+    screen_placeholder.empty()  # Clear the placeholder before rendering details
     with screen_placeholder.container():
         if st.button("⬅️ Back to History"):
             st.session_state.page = "Input History List"
             st.rerun()
 
-        st.title("Analysis Results")
-        st.info(f"Original Input: {rows[0]['input_text']}")
+        st.title("Past Verifications")
+        st.info(f"**Summary:** {rows[0]['input_summary']}")
 
-        # 3. REUSE YOUR EXISTING UI FUNCTIONS
-        with st.container(border=True):
-            chat.render_trust_metrics(formatted_claims)  # Reuses your Plotly bars
-
-        with st.container(border=True, height=400):
-            chat.render_claims(formatted_claims)  # Reuses your claim boxes
+        chat.render_trust_metrics(formatted_claims)
+        chat.render_claims(formatted_claims)
