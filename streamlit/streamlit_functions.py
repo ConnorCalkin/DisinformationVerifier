@@ -9,7 +9,7 @@ import requests
 from openai import OpenAI
 from dotenv import load_dotenv
 import boto3
-import json 
+import json
 from pydantic import BaseModel
 
 load_dotenv()
@@ -30,21 +30,6 @@ CLAIM_EXTRACTION_DEVELOPER_ROLE_CONTENT = """# Role
     5. If a claim is subjective, emotional, or an opinion (e.g., "I love...", "I don't like..."), DO NOT include it.
 
     """
-    # # Output Format
-    # [SUMMARY]
-    # Return a concise executive summary of the overall input text in 1-3 sentences.
-    # [CLAIMS]
-    # Return ONLY the claims as a plain text list, with each claim on a NEW LINE starting with a pipe character (|). 
-    # Do not use JSON, markdown, or introductory text."""
-
-    # # Example Output
-    # [SUMMARY]
-    # The article discusses Iran's nuclear program and the US response, as well as general information about fish and maritime traffic in the Strait of Hormuz.
-    # [CLAIMS]
-    # |President Trump issued a 48-hour deadline to Iran.
-    # |Fish all live in the sea.
-    # |Traffic through the Strait of Hormuz remains limited.
-    # """
 
 CLAIM_EXTRACTION_DEVELOPER_ROLE = {
     "role": "developer",
@@ -71,11 +56,6 @@ to allow for clear parsing of the explanation and sources.
 4. Return The source URL(s) for each claim if available.
 """
 
-# # Output Format
-# Return each result on a NEW LINE starting with a pipe character in this exact format:
-# |'claim_made', 'rating', '[Explanation sentence]', 'Sources: [Specify "Wikipedia" and the URL(s) and the specific URL(s) provided in the RAG facts]' 
-# """
-
 CLAIM_RATING_DEVELOPER_ROLE = {
     "role": "developer",
     "content": CLAIM_RATING_DEVELOPER_ROLE_CONTENT
@@ -91,14 +71,17 @@ class Claim:
         self.claim_text = claim_text
         self.category = category
 
-class RatedClaimResponse(BaseModel):
-    rated_claims: list[RatedClaim]
 
 class RatedClaim(BaseModel):
-    claim:str
+    claim: str
     rating: str
     explanation: str
     sources: list[str]
+
+
+class RatedClaimResponse(BaseModel):
+    rated_claims: list[RatedClaim]
+
 
 class UnratedClaimResponse(BaseModel):
     summary: str
@@ -120,7 +103,7 @@ sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
 
 def get_secrets() -> dict:
     """Fetches OpenAI API key from AWS Secrets Manager."""
-    
+
     global _CACHED_SECRET
     if _CACHED_SECRET:
         return _CACHED_SECRET
@@ -138,9 +121,10 @@ def get_secrets() -> dict:
         raise EnvironmentError(
             "Failed to retrieve secrets from AWS Secrets Manager.")
 
+
 def get_openai_client() -> OpenAI:
     """ Abstracted function to intialise and cache the OpenAI client. """
-    
+
     global _OPENAI_CLIENT
     if _OPENAI_CLIENT:
         return _OPENAI_CLIENT
@@ -157,18 +141,6 @@ def get_openai_client() -> OpenAI:
         logging.error(f"Error initializing OpenAI client: {e}")
         raise RuntimeError("Failed to initialize OpenAI client.")
 
-# def connect_to_openai() -> OpenAI:
-#     """ Establishes a connection to the OpenAI API using the API key from environment variables. """
-
-#     try:
-#         client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-#         logging.info("Successfully connected to OpenAI API.")
-#         return client
-#     except Exception as e:
-#         logging.error(f"Error initializing OpenAI client: {e}")
-#         raise RuntimeError(
-#             "Failed to initialize OpenAI client. Check logs for details.")
-
 
 def get_summary_and_claims_from_text(text_input: str) -> list[Claim]:
     """This function uses an LLM to extract a list of claims made
@@ -178,38 +150,23 @@ def get_summary_and_claims_from_text(text_input: str) -> list[Claim]:
     from the web-scraping lambda.
     """
 
-    # client = connect_to_openai()
     client = get_openai_client()
 
     raw_output = query_llm(text_input, client,
-                              CLAIM_EXTRACTION_DEVELOPER_ROLE,
-                              "Successfully extracted claims from text input.", UnratedClaimResponse)
+                           CLAIM_EXTRACTION_DEVELOPER_ROLE,
+                           "Successfully extracted claims from text input.", UnratedClaimResponse)
 
     summary_part = raw_output.summary
 
-    claims_list = convert_claims_string_to_list(raw_output.claims)
-
-
+    claims_list = [
+        Claim(claim_text=claim) for claim in raw_output.claims
+    ]
 
     return summary_part, claims_list
 
 
-def convert_claims_string_to_list(claims_list: list[str]) -> list[Claim]:
-    """This function takes the string output from the LLM 
-    and converts it into a list of Claim objects.
-    The LLM output is expected to be in the format:
-    |Claim 1
-    |Claim 2
-    |Claim 3
-    """
-
-    logging.info("Successfully converted claims string to list")
-
-    return [Claim(claim_text=claim) for claim in claims_list]
-
-
 def query_llm(prompt: str, client: OpenAI, developer_role: dict,
-              succces_log: str, response_format: object) -> str:
+              succces_log: str, response_format: object) -> UnratedClaimResponse | RatedClaimResponse:
     """
     Queries the LLM for high-level objective claims returned as a 
     newline-separated string for maximum token efficiency.
@@ -222,37 +179,23 @@ def query_llm(prompt: str, client: OpenAI, developer_role: dict,
         response = client.responses.parse(
             model="gpt-5-nano",
             input=[developer_role,
-                      {
-                          "role": "user",
-                          "content": prompt
-                      }
-                      ],
+                   {
+                       "role": "user",
+                       "content": prompt
+                   }
+                   ],
             temperature=1,
             reasoning={"effort": "low"},
             text_format=response_format,
         )
 
         logging.info(succces_log)
+
         return response.output_parsed
 
     except Exception as e:
         logging.error(f"Error querying LLM: {e}")
         raise RuntimeError("Failed to query LLM. Check logs for details.")
-
-
-def validate_claims_string(claims_string: str) -> None:
-    """ Validates that the claims string returned by the LLM is in the expected format. """
-
-    if len(claims_string.strip()) == 0:
-        raise ValueError(
-            """LLM returned an empty string. No claims were extracted.
-            Either the input text contained no verifiable claims, 
-            or it is likely token limit is too low for query of this size.""")
-
-    if "|" not in claims_string and "\n" not in claims_string:
-        raise ValueError(
-            """LLM output does not contain expected pipe characters. Check LLM response format is 
-            '|Claim 1\\n|Claim 2\\n|Claim 3'""")
 
 
 def post_to_lambda(lambda_url: str, payload: dict) -> dict:
@@ -263,7 +206,7 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
         f"Sending POST request to lambda with payload: {payload}")
 
     if "claims" in payload:
-        payload["queries"] = payload["claims"]
+        payload["queries"] = payload["claims"]  # Renaming for RAG lambda
 
     response = requests.post(
         lambda_url,
@@ -283,40 +226,42 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict:
 def send_url_to_web_scraping_lambda(user_url: str, lambda_url: str) -> str:
     """Sends a URL to the web-scraping lambda
     and returns the extracted text body."""
+
     payload = {"url": user_url}
     response = post_to_lambda(lambda_url, payload)
 
     return response["text"]
 
 
-def send_claims_to_rag_lambda(claims: list[Claim], lambda_url: str) -> list[dict]:
+def _extract_claim_strings(
+    claims: list[Claim]
+) -> list[str]:
+    """Converts a list of Claim objects to strings."""
+    return [claim.claim_text for claim in claims]
+
+
+def send_claims_to_rag_lambda(
+    claims: list[Claim], lambda_url: str
+) -> list[dict]:
     """Sends claims to the RAG lambda and
     returns relevant facts with metadata."""
 
-    # convert Claim objects to strings
-    claims = [claim.claim_text for claim in claims]
-
-    payload = {"claims": claims}
-    response = post_to_lambda(lambda_url, payload)
-
-    return response
+    payload = {"claims": _extract_claim_strings(claims)}
+    return post_to_lambda(lambda_url, payload)
 
 
-def send_claims_to_wiki_lambda(claims: list[Claim], lambda_url: str) -> list[dict]:
+def send_claims_to_wiki_lambda(
+    claims: list[Claim], lambda_url: str
+) -> list[dict]:
     """Sends claims to the Wikipedia lambda and
     returns Wikipedia evidence for each claim."""
 
-    # convert Claim objects to strings
-    claims = [claim.claim_text for claim in claims]
-
-    payload = {"claims": claims}
-
+    payload = {"claims": _extract_claim_strings(claims)}
     response = post_to_lambda(lambda_url, payload)
-
     return response["wiki_context"]
 
 
-def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict]) -> str:
+def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict]) -> RatedClaimResponse:
     """
     This functions sends the claims to openai along with context from
     Wikipedia and RAG. 
@@ -326,7 +271,6 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
     Openai will also summarize the overall user input in a short description.
     """
 
-    # client = connect_to_openai()
     client = get_openai_client()
 
     prompt = create_llm_prompt(claims, wiki_context, rag_context)
@@ -335,10 +279,11 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
                          CLAIM_RATING_DEVELOPER_ROLE,
                          "Successfully rated claims based on Wikipedia and RAG context.", RatedClaimResponse)
 
-    logging.info(f"""LLM returned response: {response.rated_claims[0].claim}
-                                            {response.rated_claims[0].rating}
-                                            {response.rated_claims[0].explanation}
-                                            {response.rated_claims[0].sources}""")
+    logging.info(f"""LLM returned response example: 
+                {response.rated_claims[0].claim}
+                {response.rated_claims[0].rating}
+                {response.rated_claims[0].explanation}
+                {response.rated_claims[0].sources}""")
 
     return response
 
@@ -354,15 +299,15 @@ def convert_llm_response_to_dict(llm_response: RatedClaimResponse) -> list[dict]
     claim_dicts = [
         {
             "claim": rated_claim.claim,
-            "rating": rated_claim.rating,
+            "rating": rated_claim.rating.upper(),
             "evidence": rated_claim.explanation,
             "sources": rated_claim.sources
         }
-        for rated_claim in llm_response.rated_claims if (rated_claim.claim and 
-                                                         rated_claim.rating and 
-                                                            rated_claim.explanation)
+        for rated_claim in llm_response.rated_claims if (rated_claim.claim and
+                                                         rated_claim.rating and
+                                                         rated_claim.explanation)
     ]
-    
+
     logging.info(f"Claims and ratings obtained: {claim_dicts[:3]}")
 
     return claim_dicts
@@ -430,11 +375,7 @@ def create_llm_prompt(
 3. Provide a brief 1-2 sentence explanation.
 4. Identify if the information came from "Wikipedia", a URL, or multiple.
 5. DO NOT include any sources if the claim is rated UNSURE.
-6. DO INCLUDE " ' " characters in the response to allow for clear parsing of the explanation and sources.
 """
-
-# ### Output Format:
-# |'claim_made','rating','[Evidence]', 'Sources: [Wikipedia and/or the specific Source URL(s) or 'None' if UNSURE]' """
 
     return prompt
 
@@ -446,7 +387,8 @@ def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], ra
         raise ValueError("Claims must be a list of Claim objects.")
 
     if wiki_context is not None and (not isinstance(wiki_context, list) or not all(isinstance(w, dict) for w in wiki_context)):
-        raise ValueError("ERROR: Wikipedia context must be a list of dictionaries.")
+        raise ValueError(
+            "ERROR: Wikipedia context must be a list of dictionaries.")
 
     if rag_context is not None and (not isinstance(rag_context, list) or not all(isinstance(r, list) for r in rag_context)):
         raise ValueError("ERROR: RAG context must be a list of lists.")
@@ -457,32 +399,6 @@ def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], ra
         raise ValueError("Wikipedia context list is empty.")
     if rag_context == []:
         raise ValueError("RAG context list is empty.")
-
-
-def validate_response_format(response: str) -> None:
-    """Validates the LLM rating response format.
-    Raises ValueError if pipe-prefixed entries
-    or valid uppercase ratings are absent.
-    """
-    pipe_entry_pattern = re.compile(
-        r"^\|", re.MULTILINE
-    )
-    valid_rating_pattern = re.compile(
-        r"\b(SUPPORTED|CONTRADICTED|MISLEADING|UNSURE)\b"
-    )
-
-    has_pipe_entry = pipe_entry_pattern.search(response)
-    has_valid_rating = valid_rating_pattern.search(response)
-
-    if not has_pipe_entry:
-        raise ValueError(
-            "Response missing pipe-prefixed claim entries."
-        )
-    if not has_valid_rating:
-        raise ValueError(
-            "Response missing a valid uppercase rating."
-        )
-    
 
 if __name__ == "__main__":
     # Example usage
