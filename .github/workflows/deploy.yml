@@ -14,8 +14,7 @@ jobs:
           - { name: "url-scraper", path: "./url_scraper", ecr_repo: "c22-dv-url-scraper-repo", type: "lambda", lambda_name: "c22-dv-url-scraper-lambda"  }
           - { name: "rag", path: "./rss_pipeline/rag", ecr_repo: "c22-dv-rag-image", type: "lambda", lambda_name: "c22-dv-rag-lambda"  }
           - { name: "rss-pipeline", path: "./rss_pipeline", ecr_repo: "c22-dv-pipeline-image", type: "lambda", lambda_name: "c22-dv-pipeline-lambda"  }
-          - { name: "streamlit", path: "./streamlit", ecr_repo: "c22-dv-streamlit-image" }
-
+          - { name: "streamlit", type: "ecs", path: "./streamlit", ecr_repo: "c22-dv-streamlit-image", ecs_cluster: "c22-dv-dashboard-cluster", ecs_service: "c22-dv-dashboard-service", container_name: "dashboard-container" }
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
