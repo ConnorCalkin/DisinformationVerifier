@@ -9,5 +9,6 @@ COPY history_dashboard.py .
 COPY streamlit_functions.py .
 COPY loading_animation.py .
 COPY about_us.py .
+COPY logo.png .
 
 CMD streamlit run chatbot.py --server.port 8501
