@@ -1,6 +1,6 @@
-
 plotly
+python-dotenv
 streamlit
-openai 
-python-dotenv 
-pytest
+psycopg2-binary
+requests
+openai
