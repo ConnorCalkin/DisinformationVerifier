@@ -46,8 +46,12 @@ if "selected_input_id" not in st.session_state:
 
 st.set_page_config(layout="wide")
 
-# Set the title of the app
-st.title('BENCHMARK')
+# Adjust ratio to control logo size
+header_col1, header_col2 = st.columns([1, 4])
+
+with header_col1:
+    # Replace 'logo.png' with the actual path to your file
+    st.image("logo.png", use_container_width=True)
 
 
 def display_claim_and_rating(claim: dict, box_design) -> None:
