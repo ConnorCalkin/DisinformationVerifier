@@ -11,6 +11,7 @@ import os
 import plotly.graph_objects as go
 from dotenv import load_dotenv
 import logging
+from loading_animation import jumping_loader
 from about_us import render_about_us
 from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
                                  get_summary_and_claims_from_text,
@@ -30,10 +31,10 @@ RAG_URL = os.getenv("RAG_URL")
 SCRAPE_URL = os.getenv("SCRAPE_URL")
 
 CATEGORY_COLORS = {
-    'SUPPORTED': "#9fe9b0",
-    'MISLEADING': "#f3be74",
-    'CONTRADICTED': "#e67575",
-    'UNSURE': "#8de6f4"
+    'SUPPORTED': "#c1eaca",
+    'MISLEADING': "#f0edb9",
+    'CONTRADICTED': "#f0c1c1",
+    'UNSURE': "#b8e2f4"
 }
 
 setup_logging()
@@ -46,8 +47,12 @@ if "selected_input_id" not in st.session_state:
 
 st.set_page_config(layout="wide")
 
-# Set the title of the app
-st.title('BENCHMARK')
+# Adjust ratio to control logo size
+header_col1, header_col2 = st.columns([1, 4])
+
+with header_col1:
+    # Replace 'logo.png' with the actual path to your file
+    st.image("logo.png", use_container_width=True)
 
 
 def display_claim_and_rating(claim: dict, box_design) -> None:
@@ -276,21 +281,31 @@ def get_claims_and_ratings_from_input(user_input: str, input_format: str, source
 
 
 def verify_button(user_input: str, input_format: str, source_type: str) -> tuple[str, list[dict]] | None:
-    """Handle button click event and return claims with ratings."""
-
     button_clicked = st.button('Verify!')
 
-    if button_clicked and user_input.strip() == "":
-        st.warning("Please enter an article, URL, or claim to verify.")
-        return None
-
-    if button_clicked and source_type == 'Choose an option...':
-        st.warning("Please select a source type to continue.")
-        return None
-
     if button_clicked:
+        if user_input.strip() == "":
+            st.warning("Please enter an article, URL, or claim to verify.")
+            return None
+
+        if source_type == 'Choose an option...':
+            st.warning("Please select a source type to continue.")
+            return None
+
+        placeholder = st.empty()
+        with placeholder.container():
+            jumping_loader()
+            log_text = st.empty()
+            log_text.write("searching for relevant information...")
+
         result = get_claims_and_ratings_from_input(
-            user_input, input_format, source_type)
+            user_input,
+            input_format,
+            source_type
+        )
+
+        placeholder.empty()
+
         if result:
             summary, claims_and_ratings = result
             return summary, claims_and_ratings
