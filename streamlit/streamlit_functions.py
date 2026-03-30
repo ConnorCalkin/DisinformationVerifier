@@ -145,12 +145,6 @@ def convert_claims_string_to_list(claims_string: str) -> list[Claim]:
     validate_claims_string(claims_string)
 
     claims_list = re.split(r'\n|\|', claims_string)
-    # normalised = claims_string.replace("|", "\n")
-    # lines = normalised.splitlines()
-    # claims_list = [line.strip() for line in lines if line.strip()]
-
-    # claims_list = [claim.strip() for claim in raw_claims if claim.strip()]
-
     claims_list = [claim.strip()
                    for claim in claims_list if claim.strip() != ""]
 

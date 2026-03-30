@@ -104,36 +104,7 @@ def render_and_parse_input_boxes() -> tuple[str, str, str]:
             st.warning("Please select a source type to continue.")
             st.stop()  # Prevent further execution until a valid source type is selected
 
-        # source = render_and_parse_optional_input_box(source_type)
-
     return user_input, input_format, source_type
-
-
-# def render_and_parse_optional_input_box(source_type) -> str:
-#     """Set up follow up input fields based on the source type selected by the user."""
-
-#     if source_type == 'News Article':
-#         source = st.text_input(
-#             label='Article Source (Optional):',
-#             placeholder='e.g. BBC, CNN, etc.',
-#             key='news_source'
-#         )
-
-#     if source_type == 'Social Media':
-#         source = st.text_input(
-#             label='Platform (Optional):',
-#             placeholder='e.g. TikTok, Facebook, etc.',
-#             key='social_platform'
-#         )
-
-#     if source_type == 'Other':
-#         source = st.text_input(
-#             label='Source Description (Optional):',
-#             placeholder='e.g. YouTube video, podcast, etc.',
-#             key='other_source'
-#         )
-
-#     return source
 
 
 def add_grey_background(y_positions: list[str]) -> go.Figure:
