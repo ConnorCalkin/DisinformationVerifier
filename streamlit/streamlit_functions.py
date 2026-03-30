@@ -4,10 +4,12 @@ This script contain functions and classes that are used in the streamlit app
 
 import re
 import logging
-import os
+from os import environ
 import requests
 from openai import OpenAI
 from dotenv import load_dotenv
+import boto3
+import json 
 
 load_dotenv()
 
@@ -87,17 +89,61 @@ def setup_logging():
     )
 
 
-def connect_to_openai() -> OpenAI:
-    """ Establishes a connection to the OpenAI API using the API key from environment variables. """
+_CACHED_SECRET = None
+_OPENAI_CLIENT = None
+sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
 
+
+def get_secrets() -> dict:
+    """Fetches OpenAI API key from AWS Secrets Manager."""
+    
+    global _CACHED_SECRET
+    if _CACHED_SECRET:
+        return _CACHED_SECRET
+    secret_name = environ.get("SECRET_ID")
+    if not secret_name:
+        logging.error("SECRET_ID environment variable not set.")
+        raise EnvironmentError("SECRET_ID environment variable not set.")
     try:
-        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        logging.info("Successfully connected to OpenAI API.")
-        return client
+        response = sm_client.get_secret_value(SecretId=secret_name)
+        _CACHED_SECRET = json.loads(response['SecretString'])
+        logging.info("Secrets successfully retrieved and cached.")
+        return _CACHED_SECRET
+    except Exception as e:
+        logging.error(f"Error fetching secrets from AWS Secrets Manager: {e}")
+        raise EnvironmentError(
+            "Failed to retrieve secrets from AWS Secrets Manager.")
+
+def get_openai_client() -> OpenAI:
+    """ Abstracted function to intialise and cache the OpenAI client. """
+    
+    global _OPENAI_CLIENT
+    if _OPENAI_CLIENT:
+        return _OPENAI_CLIENT
+    try:
+        secrets = get_secrets()
+        api_key = secrets.get('OPENAI_API_KEY')
+        if not api_key:
+            logging.error("OPENAI_API_KEY not found in secrets.")
+            raise KeyError("OPENAI_API_KEY not found in secrets.")
+        _OPENAI_CLIENT = OpenAI(api_key=api_key)
+        logging.info("OpenAI client initialized and cached.")
+        return _OPENAI_CLIENT
     except Exception as e:
         logging.error(f"Error initializing OpenAI client: {e}")
-        raise RuntimeError(
-            "Failed to initialize OpenAI client. Check logs for details.")
+        raise RuntimeError("Failed to initialize OpenAI client.")
+
+# def connect_to_openai() -> OpenAI:
+#     """ Establishes a connection to the OpenAI API using the API key from environment variables. """
+
+#     try:
+#         client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+#         logging.info("Successfully connected to OpenAI API.")
+#         return client
+#     except Exception as e:
+#         logging.error(f"Error initializing OpenAI client: {e}")
+#         raise RuntimeError(
+#             "Failed to initialize OpenAI client. Check logs for details.")
 
 
 def get_claims_from_text(text_input: str) -> list[Claim]:
@@ -108,7 +154,8 @@ def get_claims_from_text(text_input: str) -> list[Claim]:
     from the web-scraping lambda.
     """
 
-    client = connect_to_openai()
+    # client = connect_to_openai()
+    client = get_openai_client()
 
     claims_string = query_llm(text_input, client,
                               CLAIM_EXTRACTION_DEVELOPER_ROLE,
@@ -257,7 +304,8 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
     Openai will also summarize the overall user input in a short description.
     """
 
-    client = connect_to_openai()
+    # client = connect_to_openai()
+    client = get_openai_client()
 
     prompt = create_llm_prompt(claims, wiki_context, rag_context)
 
