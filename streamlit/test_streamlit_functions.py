@@ -120,7 +120,7 @@ def test_lambda_logic_simple_response(mock_post):
     mock_response = mock_post.return_value
 
     mock_response.json.return_value = {
-        "message": "mock_text", "status_code": 200}
+        "text": "mock_text", "status_code": 200}
 
     mock_response.status_code = 200
 
@@ -249,7 +249,7 @@ def test_create_llm_prompt():
 
     prompt = create_llm_prompt(claims_list, wiki_list, rag_list)
 
-    assert prompt == """Evaluate the following claims based on
+    assert prompt == f"""Evaluate the following {len(claims_list)} individual claims separately based on
                 the provided Wikipedia evidence and RAG facts. 
                 For each claim, assign a rating of 
                 SUPPORTED, CONTRADICTED, MISLEADING, or UNSURE
