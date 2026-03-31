@@ -36,7 +36,6 @@ CATEGORY_COLORS = {
     'CONTRADICTED': "#f0c1c1",
     'UNSURE': "#b8e2f4"
 }
-# "#848384"
 
 setup_logging()
 
