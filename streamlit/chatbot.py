@@ -307,7 +307,7 @@ def render_and_parse_input_boxes() -> tuple[str, str, str]:
             )
         if source_type == 'Choose an option...':
 
-            st.info("💡 Tip: Select a source type to enable verification.")
+            st.info("💡 Hint: Select a source type to enable verification.")
 
     return user_input, input_format, source_type
 
@@ -613,9 +613,6 @@ def render_results_screen(summary: str, claims_and_ratings: list[dict], screen_p
 
 def main():
     apply_syft_pro_theme()
-
-    # --- 1. SMART HEADER LOGIC (Top Left) ---
-    # Show the small logo ONLY IF results exist OR we are NOT on the Verifier tab's input state
     col_logo, _ = st.columns([1, 10])
     with col_logo:
         st.image("logo.png", width=70)
@@ -625,9 +622,6 @@ def main():
         if st.session_state.selected_input_id:
             history.render_history_detail_screen(
                 st.session_state.selected_input_id, st.container())
-            # if st.button("← Back to History", key="back_to_hist"):
-            #     st.session_state.page = "Input History List"
-            #     st.rerun()
         return
 
     # --- 3. MAIN NAVIGATION TABS ---
@@ -644,9 +638,21 @@ def main():
                 st.image("logo.png", use_container_width=True)
 
             st.markdown(
-                "<p style='text-align: center; color: #666; font-size: 1.1rem;'>Analyze claims. Compare sources. Unmask falsehoods.</p>",
+                """
+                <div style="display: flex; justify-content: center; width: 100%; margin-top: -65px;">
+                    <div style="width: 420px; display: flex; justify-content: flex-end;">
+                        <p style="color: #666; font-size: 1.4rem; margin-right: -30px;">
+                            Beyond The Headlines
+                        </p>
+                    </div>
+                </div>
+                """,
                 unsafe_allow_html=True
             )
+
+            st.markdown("<div style='margin-bottom: 60px; margin-top: -25px;'></div>",
+                        unsafe_allow_html=True)
+
 
             # --- INPUT FORM ---
             user_input, input_format, source_type = render_and_parse_input_boxes()
@@ -676,26 +682,6 @@ def main():
     with tab_about:
         st.session_state.page = "About"
         render_about_us()
-
-
-def render_input_page_ui(placeholder):
-    with placeholder.container():
-        # Central Branding
-        _, center_logo, _ = st.columns([0.5, 2, 0.5])
-        with center_logo:
-            st.image("big_logo.png", use_container_width=True)
-            st.markdown(
-                "<p style='text-align: center; color: #666; font-size: 1.1rem;'>Analyze claims. Compare sources. Unmask falsehoods.</p>", unsafe_allow_html=True)
-
-        # The Functional Form
-        user_input, input_format, source_type = render_and_parse_input_boxes()
-
-        # Verify Button
-        result = verify_button(user_input, input_format, source_type)
-        if result:
-            st.session_state.results = result
-            st.rerun()
-
 
 
 if __name__ == "__main__":
