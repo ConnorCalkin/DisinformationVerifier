@@ -27,4 +27,8 @@ resource "aws_lambda_function" "pipeline_lambda" {
             SECRET_ID    = aws_secretsmanager_secret.credentials.name
         }
     }
+
+    lifecycle {
+      ignore_changes = [image_uri]
+    }
 }

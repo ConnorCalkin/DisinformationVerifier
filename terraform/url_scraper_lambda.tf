@@ -7,6 +7,10 @@ resource "aws_lambda_function" "url_scraper_lambda" {
 
     timeout      = 60
     memory_size  = 512
+
+    lifecycle {
+      ignore_changes = [image_uri]
+    }
 }
 
 resource "aws_lambda_permission" "allow_lambda_url" {

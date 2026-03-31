@@ -163,6 +163,9 @@ resource "aws_ecs_task_definition" "dashboard_task" {
             }
         }
     ])
+    lifecycle {
+      ignore_changes = [container_definitions]
+    }
 }
 
 resource "aws_security_group" "ecs_sg" {
@@ -196,5 +199,12 @@ resource "aws_ecs_service" "dashboard_service" {
         security_groups = [aws_security_group.ecs_sg.id]
         assign_public_ip = true
     }
+
+    lifecycle {
+    ignore_changes = [
+      desired_count,   # Let Auto Scaling handle the scaling
+      task_definition, # If you use 'aws ecs update-service' in CI/CD
+    ]
+  }
 }
     
