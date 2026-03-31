@@ -21,7 +21,7 @@ FEEDS = {
 
 
 # How far to look back at articles in hours:
-SCRAPE_FREQUENCY = 3
+SCRAPE_FREQUENCY = 0.5
 
 
 def fetch_raw_html(url: str) -> str:

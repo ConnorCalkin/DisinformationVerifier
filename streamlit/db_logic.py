@@ -193,3 +193,29 @@ def archive_user_input(input_text: str,
     finally:
         if conn:
             conn.close()
+
+
+def get_source_ratings():
+
+    query = """
+            SELECT 
+                s.source_type_name,
+                COUNT(i.input_id) AS total_inputs,
+                SUM(m.contradicted) AS total_contradicted,
+                SUM(m.misleading) AS total_misleading,
+                ROUND(
+                    CAST(
+                        (SUM(m.contradicted) + SUM(m.misleading)) / NULLIF(COUNT(i.input_id), 0) * 100 
+                    AS NUMERIC), 
+                2) AS unreliability_pct
+            FROM source_type s
+            JOIN input i ON s.source_type_id = i.source_type_id
+            JOIN metrics m ON i.metrics_id = m.metrics_id 
+            GROUP BY s.source_type_id, s.source_type_name
+            ORDER BY unreliability_pct DESC
+            LIMIT 10;
+        """
+
+    results = run_query(query)
+
+    return results
