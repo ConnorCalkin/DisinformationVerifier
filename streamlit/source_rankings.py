@@ -78,4 +78,4 @@ st.divider()
 st.subheader("Global Database Insights")
 avg_fail = df['unreliability_pct'].mean()
 st.write(
-    f"Across your top 10 flagged sources, the average rate of misinformation is **{avg_fail:.1f}%**.")
+    f"Across the top 10 flagged sources, the average rate of misinformation is **{avg_fail:.1f}%**.")
