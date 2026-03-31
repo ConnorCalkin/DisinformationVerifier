@@ -1,11 +1,11 @@
 import logging
 from os import environ
 from datetime import datetime
-import psycopg2
 from psycopg2 import connect
 from psycopg2.extras import RealDictCursor
 from psycopg2.extensions import connection
 from dotenv import load_dotenv
+
 
 def setup_logging():
     """ Configures logging for the application. Logs will be sent to the console. """
@@ -14,7 +14,10 @@ def setup_logging():
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
 
+
 load_dotenv()
+
+
 def get_db_connection() -> connection:
     """ Establishes and returns a connection to the rds database. """
     try:
@@ -32,6 +35,7 @@ def get_db_connection() -> connection:
         logging.error(f"Error connecting to the database: {e}")
         raise ConnectionError("Failed to connect to the database.")
 
+
 def run_query(query: str, params: tuple = None) -> list:
     """ Executes a given SQL query and returns the results. """
     with get_db_connection() as conn:
@@ -43,6 +47,7 @@ def run_query(query: str, params: tuple = None) -> list:
                 result = []
     logging.info("Query executed successfully.")
     return result
+
 
 def fetch_input_history_list() -> list:
     '''
@@ -61,11 +66,11 @@ def fetch_input_history_list() -> list:
             """
     return run_query(query)
 
+
 def fetch_input_details(input_id: int) -> dict:
     '''
     Fetches the details of a specific input, including claims and metrics.
     '''
-
 
     query = """
             SELECT 
@@ -77,6 +82,7 @@ def fetch_input_details(input_id: int) -> dict:
                 c.claim_text,
                 c.rating,
                 c.evidence,
+                c.sources,
                 m.supported,
                 m.contradicted,
                 m.misleading,
@@ -93,18 +99,19 @@ def fetch_input_details(input_id: int) -> dict:
             WHERE 
                 i.input_id = %s
             """
-    
+
     return run_query(query, (input_id,))
 
 
 def metrics_table_insert_execution(cur, supported: float, contradicted: float, misleading: float, unsure: float) -> str:
     """ Helper function to generate the SQL query for inserting metrics. """
-    cur.execute( """
+    cur.execute("""
                 INSERT INTO metrics (supported, contradicted, misleading, unsure)
                 VALUES (%s, %s, %s, %s) RETURNING metrics_id
                 """, (supported, contradicted, misleading, unsure))
     metrics_id = cur.fetchone()['metrics_id']
     return metrics_id
+
 
 def source_type_table_insert_execution(cur, source_type_name: str) -> str:
     """ Helper function to generate the SQL query for inserting source type. """
@@ -117,6 +124,7 @@ def source_type_table_insert_execution(cur, source_type_name: str) -> str:
     source_type_id = cur.fetchone()['source_type_id']
     return source_type_id
 
+
 def input_table_insert_execution(cur, input_text: str, input_summary: str, source_type_id: int, metrics_id: int) -> str:
     """ Helper function to generate the SQL query for inserting input. """
     created_at = datetime.now()
@@ -127,12 +135,17 @@ def input_table_insert_execution(cur, input_text: str, input_summary: str, sourc
     input_id = cur.fetchone()['input_id']
     return input_id
 
-def claim_table_insert_execution(cur, input_id: int, claim: str, rating: str, evidence: str) -> None:
+
+def claim_table_insert_execution(cur, input_id: int,
+                                 claim: str,
+                                 rating: str,
+                                 evidence: str,
+                                 sources: list[str]) -> None:
     """ Helper function to generate the SQL query for inserting claims. """
     cur.execute("""
-        INSERT INTO claim (input_id, claim_text, rating, evidence)
-        VALUES (%s, %s, %s, %s)
-        """, (input_id, claim, rating, evidence))
+        INSERT INTO claim (input_id, claim_text, rating, evidence, sources)
+        VALUES (%s, %s, %s, %s, %s)
+        """, (input_id, claim, rating, evidence, sources))
 
 
 def archive_user_input(input_text: str,
@@ -148,23 +161,26 @@ def archive_user_input(input_text: str,
     Uses a transaction to ensure data integrity across multiple tables.
     """
     if not claims:
-        logging.warning("No claims to archive for this input. Skipping archive.")
+        logging.warning(
+            "No claims to archive for this input. Skipping archive.")
         return
     conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
             # Insert metrics to retrieve metrics_id
-            metrics_id = metrics_table_insert_execution(cur, supported, contradicted, misleading, unsure)
+            metrics_id = metrics_table_insert_execution(
+                cur, supported, contradicted, misleading, unsure)
             # Insert source type to retrieve source_type_id
-            source_type_id = source_type_table_insert_execution(cur, source_type_name)
+            source_type_id = source_type_table_insert_execution(
+                cur, source_type_name)
             # Insert input and retrieve input_id
             input_id = input_table_insert_execution(cur, input_text, input_summary,
                                                     source_type_id, metrics_id)
             # Insert claims
             for claim in claims:
                 claim_table_insert_execution(cur, input_id, claim['claim'],
-                                            claim['rating'], claim['evidence'])
+                                             claim['rating'], claim['evidence'], claim['sources'])
             conn.commit()
             logging.info(
                 f"Successfully archived user input with input_id: {input_id}")

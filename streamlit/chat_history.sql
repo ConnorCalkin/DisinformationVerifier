@@ -1,3 +1,8 @@
+DROP TABLE IF EXISTS claim CASCADE;
+DROP TABLE IF EXISTS input CASCADE;
+DROP TABLE IF EXISTS metrics CASCADE;
+DROP TABLE IF EXISTS source_type CASCADE;
+
 CREATE TABLE IF NOT EXISTS source_type (
     source_type_id INT GENERATED ALWAYS AS IDENTITY,
     source_type_name VARCHAR(50) UNIQUE NOT NULL,
@@ -31,6 +36,7 @@ CREATE TABLE IF NOT EXISTS claim (
     claim_text TEXT NOT NULL,
     rating TEXT NOT NULL,
     evidence TEXT NOT NULL,
+    sources TEXT[] NOT NULL,
     PRIMARY KEY (claim_id),
     FOREIGN KEY (input_id) REFERENCES input(input_id) ON DELETE CASCADE
 );

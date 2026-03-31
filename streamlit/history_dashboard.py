@@ -1,8 +1,7 @@
-import streamlit as st
 import db_logic as db
 import chatbot as chat
 import plotly.graph_objects as go
-import chatbot as chat
+import streamlit as st
 
 # -- SIDEBAR: CHAT HISTORY NAVIGATION --
 
@@ -89,7 +88,8 @@ def render_history_detail_screen(input_id: int, screen_placeholder) -> None:
         formatted_claims.append({
             'claim': r['claim_text'],
             'rating': r['rating'],
-            'evidence': r['evidence']
+            'evidence': r['evidence'],
+            'sources': r['sources']
         })
     screen_placeholder.empty()  # Clear the placeholder before rendering details
     with screen_placeholder.container():
@@ -100,5 +100,5 @@ def render_history_detail_screen(input_id: int, screen_placeholder) -> None:
         st.title("Past Verifications")
         st.info(f"**Summary:** {rows[0]['input_summary']}")
 
-        chat.render_trust_metrics(formatted_claims)
+        chat.render_trust_metrics(*chat.calculate_metrics(formatted_claims))
         chat.render_claims(formatted_claims)

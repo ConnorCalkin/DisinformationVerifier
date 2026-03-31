@@ -30,6 +30,11 @@ WIKI_URL = os.getenv("WIKI_URL")
 RAG_URL = os.getenv("RAG_URL")
 SCRAPE_URL = os.getenv("SCRAPE_URL")
 
+INPUT_FORMAT_URL = 'URL'
+INPUT_FORMAT_CLAIM = 'Claim'
+INPUT_FORMAT_ARTICLE = 'Article Text'
+DEFAULT_SOURCE_OPTION = 'Choose an option...'
+
 CATEGORY_COLORS = {
     'SUPPORTED': "#c1eaca",
     'MISLEADING': "#f0edb9",
@@ -265,7 +270,8 @@ def display_claim_and_rating(claim: dict, box_design) -> None:
 
     with ratings:
         st.markdown(f"**Rating:** {claim['rating']}")
-        st.markdown(f"**Evidence:** {claim['evidence']}")
+        st.markdown(
+            f"**Evidence:** {claim['evidence']} Sources: {', '.join(claim['sources'])}")
 
 
 def render_and_parse_input_boxes() -> tuple[str, str, str]:
@@ -294,14 +300,30 @@ def render_and_parse_input_boxes() -> tuple[str, str, str]:
         with format_input:
             input_format = st.selectbox(
                 label='Input format:',
-                options=['URL', 'Claim', 'Article Text'],
+                options=[
+                    INPUT_FORMAT_URL,
+                    INPUT_FORMAT_CLAIM,
+                    INPUT_FORMAT_ARTICLE
+
+                ],
                 key='input_format'
             )
         with source_input:
             source_type = st.selectbox(
                 label='Source type:',
-                options=['Choose an option...', 'TikTok', 'Instagram', 'Facebook',
-                         'The Guardian', 'The Daily Mail', 'The Sun', 'AI', 'Twitter/X'],
+                options=[DEFAULT_SOURCE_OPTION,
+                         'TikTok',
+                         'Instagram',
+                         'Facebook',
+                         'BBC',
+                         'Reddit',
+                         'The Guardian',
+                         'GB News',
+                         'The Daily Mail',
+                         'The Sun',
+                         'AI',
+                         'Twitter/X',
+                         'Other'],
                 key='source_type',
                 index=0
             )
@@ -406,17 +428,17 @@ def render_claims(claims: list[dict]) -> None:
 def get_unrated_claims_from_input(user_input: str, input_format: str) -> tuple[str, list[Claim]]:
     """Extract claims from the user input based on the input format."""
 
-    if input_format == 'Claim':
+    if input_format == INPUT_FORMAT_CLAIM:
         summary = f"Verification of the following claim: {user_input.title()}"
         unrated_claims = [Claim(claim_text=user_input)]
         return summary, unrated_claims
 
-    if input_format == 'URL':
+    if input_format == INPUT_FORMAT_URL:
         article_body = send_url_to_web_scraping_lambda(
             user_input, SCRAPE_URL)
         return get_summary_and_claims_from_text(article_body)
 
-    if input_format == 'Article Text':
+    if input_format == INPUT_FORMAT_ARTICLE:
 
         return get_summary_and_claims_from_text(user_input)
 
@@ -429,10 +451,10 @@ def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], l
 
     logging.info("Connecting to Wikipedia")
     wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
-    logging.info("Successfully retrieved context from Wikipedia: example snippet: " +
-                 str(wiki_context[0]) + "...")
-
-    logging.debug(type(wiki_context[0]), "type of first wiki context element")
+    logging.info(
+        "Successfully retrieved context from Wikipedia: "
+        f"example snippet: {str(wiki_context[0])}..."
+    )
 
     logging.info("Connecting to RAG")
     rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
@@ -475,12 +497,21 @@ def get_claims_and_ratings_from_input(user_input: str, input_format: str, source
             unsure=uns,
             claims=rated_claims
         )
-        return summary, rated_claims
+        return summary, rated_claims, (sup, mis, con, uns)
+
     return None
 
 
 def verify_button(user_input: str, input_format: str, source_type: str) -> tuple[str, list[dict]] | None:
     button_clicked = st.button('Syft!')
+
+    if button_clicked and user_input.strip() == "":
+        st.warning("Please enter an article, URL, or claim to verify.")
+        return None
+
+    if button_clicked and source_type == DEFAULT_SOURCE_OPTION:
+        st.warning("Please select a source type to continue.")
+        return None
 
     if button_clicked:
         if user_input.strip() == "":
@@ -506,22 +537,23 @@ def verify_button(user_input: str, input_format: str, source_type: str) -> tuple
         placeholder.empty()
 
         if result:
-            summary, claims_and_ratings = result
-            return summary, claims_and_ratings
+            summary, claims_and_ratings, metrics = result
+            return summary, claims_and_ratings, metrics
 
     return None
 
 
-def render_trust_metrics(claims_and_rating: list[dict]) -> None:
+def render_trust_metrics(
+    supported: float,
+    misleading: float,
+    contradicted: float,
+    unsure: float
+) -> None:
     """Display bar metrics about the user input. These include:
     -Supported
     -Misleading
     -Contradicted
     -Unsure"""
-
-    supported, misleading, contradicted, unsure = calculate_metrics(
-        claims_and_rating)
-
     fields_col, values_col = st.columns([1, 3])
 
     with fields_col:
@@ -581,7 +613,8 @@ def render_input_screen(screen_placeholder) -> tuple[str, list[dict]] | None:
         user_input, input_format, source_type = render_and_parse_input_boxes()
 
         try:
-            result = verify_button(user_input, input_format, source_type)
+            result = render_verify_button(
+                user_input, input_format, source_type)
             return result
         except RuntimeError as e:
             st.error(f"An error occurred during verification: {e}")
@@ -591,7 +624,12 @@ def render_input_screen(screen_placeholder) -> tuple[str, list[dict]] | None:
             return None
 
 
-def render_results_screen(summary: str, claims_and_ratings: list[dict], screen_placeholder) -> None:
+def render_results_screen(
+    summary: str,
+    claims_and_ratings: list[dict],
+    metrics: tuple[float, float, float, float],
+    screen_placeholder
+) -> None:
     """Render the results screen to display claims and their ratings."""
 
     screen_placeholder.empty()
@@ -605,7 +643,7 @@ def render_results_screen(summary: str, claims_and_ratings: list[dict], screen_p
         st.subheader("Input Summary")
         st.info(summary)
 
-        render_trust_metrics(claims_and_ratings)
+        render_trust_metrics(*metrics)
 
     with st.container(border=True, height=300):
         render_claims(claims_and_ratings)
