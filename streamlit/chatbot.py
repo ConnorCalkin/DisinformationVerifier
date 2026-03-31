@@ -694,35 +694,9 @@ def render_results_screen(summary: str, claims_and_ratings: list[dict], screen_p
     with st.container(border=True, height=300):
         render_claims(claims_and_ratings)
 
-    # if st.button('Verify another claim?'):
-    #     st.rerun()
-
-
-# def render_input_page_ui(placeholder):
-#     """The SYFT Hero landing page logic."""
-#     with placeholder.container():
-#         # Large Branding
-#         _, center_logo, _ = st.columns([1, 2, 1])
-#         with center_logo:
-#             st.image("logo.png", use_container_width=True)
-#             st.markdown(
-#                 "<h3 style='text-align: center;'>Seek the truth.</h3>", unsafe_allow_html=True)
-
-#         # The actual Input Form
-#         user_input, input_format, source_type = render_and_parse_input_boxes()
-
-#         # Action Button
-#         result = verify_button(user_input, input_format, source_type)
-
-#         if result:
-#             summary, claims = result
-#             st.session_state.page = "Results"  # Toggle state
-#             render_results_screen(summary, claims, placeholder)
-
 
 def main():
     apply_syft_pro_theme()
-    inject_static_streams()
 
     # --- 1. SMART HEADER LOGIC (Top Left) ---
     # Show the small logo ONLY IF results exist OR we are NOT on the Verifier tab's input state
@@ -787,9 +761,6 @@ def main():
         st.session_state.page = "About"
         render_about_us()
 
-# --- HELPER CLEANUP ---
-# You can delete the separate 'render_input_page_ui' and 'render_input_screen'
-# functions if they are just duplicates of the logic now inside main().
 
 def render_input_page_ui(placeholder):
     with placeholder.container():
@@ -809,36 +780,6 @@ def render_input_page_ui(placeholder):
             st.session_state.results = result
             st.rerun()
 
-# def main():
-
-#     if "page" not in st.session_state:
-#         st.session_state.page = "Input"
-
-#     history.render_sidebar()
-
-#     placeholder = st.empty()
-
-#     if st.session_state.page == "Input":
-#         result = render_input_screen(placeholder)
-
-#         if result is not None:
-#             summary, claims_and_ratings = result
-#             render_results_screen(summary, claims_and_ratings, placeholder)
-
-#     elif st.session_state.page == "History":
-#         history.render_history_list_screen(placeholder)
-
-#     elif st.session_state.page == "Input Detail":
-#         if st.session_state.selected_input_id:
-#             history.render_history_detail_screen(
-#                 st.session_state.selected_input_id, placeholder)
-#         else:
-#             st.warning("No record selected. Returning to input screen.")
-#             st.session_state.page = "Input"
-#             st.rerun()
-
-#     elif st.session_state.page == "About Us":
-#         render_about_us()
 
 
 if __name__ == "__main__":
