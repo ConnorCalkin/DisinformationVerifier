@@ -83,6 +83,7 @@ def fetch_input_details(input_id: int) -> dict:
                 c.claim_text,
                 c.rating,
                 c.evidence,
+                c.sources,
                 m.supported,
                 m.contradicted,
                 m.misleading,
@@ -135,13 +136,16 @@ def input_table_insert_execution(cur, input_text: str, input_summary: str, sourc
     input_id = cur.fetchone()['input_id']
     return input_id
 
-
-def claim_table_insert_execution(cur, input_id: int, claim: str, rating: str, evidence: str) -> None:
+def claim_table_insert_execution(cur, input_id: int, 
+claim: str, 
+rating: str, 
+evidence: str, 
+sources:list[str]) -> None:
     """ Helper function to generate the SQL query for inserting claims. """
     cur.execute("""
-        INSERT INTO claim (input_id, claim_text, rating, evidence)
-        VALUES (%s, %s, %s, %s)
-        """, (input_id, claim, rating, evidence))
+        INSERT INTO claim (input_id, claim_text, rating, evidence, sources)
+        VALUES (%s, %s, %s, %s, %s)
+        """, (input_id, claim, rating, evidence, sources))
 
 
 def archive_user_input(input_text: str,
@@ -176,7 +180,7 @@ def archive_user_input(input_text: str,
             # Insert claims
             for claim in claims:
                 claim_table_insert_execution(cur, input_id, claim['claim'],
-                                             claim['rating'], claim['evidence'])
+                                            claim['rating'], claim['evidence'], claim['sources'])
             conn.commit()
             logging.info(
                 f"Successfully archived user input with input_id: {input_id}")
