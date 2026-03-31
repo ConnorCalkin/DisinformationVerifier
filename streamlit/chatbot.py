@@ -36,8 +36,11 @@ CATEGORY_COLORS = {
     'CONTRADICTED': "#f0c1c1",
     'UNSURE': "#b8e2f4"
 }
+# "#848384"
 
 setup_logging()
+
+st.set_page_config(layout="wide")
 
 if "page" not in st.session_state:
     st.session_state.page = "Input"
@@ -45,14 +48,294 @@ if "page" not in st.session_state:
 if "selected_input_id" not in st.session_state:
     st.session_state.selected_input_id = None
 
-st.set_page_config(layout="wide")
 
-# Adjust ratio to control logo size
-header_col1, header_col2 = st.columns([1, 4])
 
-with header_col1:
-    # Replace 'logo.png' with the actual path to your file
-    st.image("logo.png", use_container_width=True)
+def apply_syft_pro_theme():
+    st.markdown("""
+        <style>
+        /* Lightened Background (Bone White) */
+        .stApp {
+            background-color: #F6F3F8 !important;
+        }
+
+        /* 2. STYLE THE TABS TO BE SLEEK */
+        /* Center the tab bar */
+        .stTabs [data-baseweb="tab-list"] {
+            justify-content: center;
+            gap: 60px;
+            background-color: transparent !important;
+        }
+                
+        /* 1. The Tab text itself (Inactive state) */
+        .stTabs [data-baseweb="tab"] {
+            height: 50px;
+            background-color: transparent !important;
+            border: none !important;
+            font-family: sans-serif;
+            font-weight: 600 !important;
+            color: #888 !important; /* Set inactive tabs to grey for contrast */
+            font-size: 1rem !important;
+            letter-spacing: 0.05em;
+            transition: color 0.3s ease;
+        }
+
+        /* 2. The Active Tab (Text color & Underline) */
+        /* This targets the tab when it is clicked/active */
+        .stTabs [data-baseweb="tab"][aria-selected="true"] {
+            color: #531F78 !important; /* Your Purple */
+            border-bottom: 3px solid #531F78 !important; /* Matching Purple Underline */
+        }
+
+        /* 3. The Sliding Highlight (Streamlit's internal bar) */
+        /* Change the sliding bar to match your purple so it doesn't flash blue */
+        div[data-baseweb="tab-highlight"] {
+            background-color: #531F78 !important;
+        }
+
+        /* The Analyze/Verify Button */
+        div.stButton > button {
+            background-color: #531F78 !important;
+            color: white !important;
+            border-radius: 8px !important;
+            border: none !important;
+            padding: 0.6rem 2rem !important;
+            transition: 0.3s;
+        }
+        
+        div.stButton > button:hover {
+            background-color: #331A44 !important;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Clean up the Sidebar (Hide it since we have top nav) */
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+                
+        /* 1. The main background of the alert box */
+        div[data-testid="stAlert"] {
+            background-color: #F1E6F9 !important; /* Soft Purple Background */
+            border: 1px solid #531F78 !important;  /* Purple Border */
+            border-radius: 8px !important;
+        }
+
+        /* 2. Target the text inside the box (The most important part) */
+        div[data-testid="stAlert"] div[data-testid="stMarkdownContainer"] p {
+            color: #531F78 !important; /* Dark Purple Text */
+            font-weight: 500 !important;
+        }
+
+        /* 3. Target the Icon (The 'i' or '!' symbol) */
+        div[data-testid="stAlert"] svg {
+            fill: #531F78 !important;
+            color: #531F78 !important;
+        }
+
+        /* 4. Fix for the 'X' close button if it exists */
+        div[data-testid="stAlert"] button {
+            color: #531F78 !important;
+        }
+                
+        /* 1. TEXT AREA & SELECTBOX BASE STYLE */
+        .stTextArea textarea, 
+        div[data-baseweb="select"] > div {
+            background-color: #FFFFFF !important; /* Soft Purple Background */
+            border: 1px solid #d1d1d1 !important;  /* Subtle grey border */
+            border-radius: 10px !important;
+            color: #000000 !important;             /* FORCE TYPED TEXT TO BLACK */
+            -webkit-text-fill-color: #000000 !important;
+        }
+
+        /* 2. PLACEHOLDER STYLE (The 'Grey' text before typing) */
+        .stTextArea textarea::placeholder {
+            color: #888888 !important;             /* Professional Grey */
+            -webkit-text-fill-color: #888888 !important;
+            opacity: 1; 
+        }
+
+        /* 1. COMPLETELY KILL THE RED/ORANGE FOCUS RING */
+        /* We target every possible layer of the Streamlit Input/Selectbox */
+        [data-baseweb="base-input"]:focus-within, 
+        [data-baseweb="input"]:focus-within,
+        .stTextArea div:focus-within,
+        .stSelectbox div:focus-within {
+            border-color: #531F78 !important; /* SYFT Purple Border */
+            box-shadow: 0 0 0 2px rgba(83, 31, 120, 0.2) !important; /* Soft Purple Glow */
+            background-color: #ffffff !important;
+        }
+        /* 4. DROPDOWN (SELECTBOX) FOCUS FIX */
+        /* This kills the red ring on the dropdowns specifically */
+        div[data-baseweb="select"]:focus-within {
+            border-color: #531F78 !important;
+            box-shadow: 0 0 0 2px rgba(83, 31, 120, 0.2) !important;
+            outline: none !important;
+        }
+
+        /* Ensure dropdown text is black once selected */
+        div[data-baseweb="select"] span {
+            color: #000000 !important;
+        }
+
+        /* 5. SYFT PURPLE FOR LABELS */
+        .stTextArea label p, 
+        .stSelectbox label p {
+            color: #531F78 !important;
+            font-weight: 600 !important;
+            text-transform: none; /* Keeps labels from being all caps if preferred */
+        }
+                
+        /* 2. ALIGN THE BOXES (EXTEND INPUT LENGTH) */
+        /* Adjust the '165px' value below to get the perfect alignment with your Tip Box */
+        .stTextArea textarea {
+            min-height: 140px !important; 
+            max-height: 140px !important;
+            background-color: #ffffff !important;
+            border-radius: 10px !important;
+        }
+                
+        /* Reduce the gap at the very top of the page for the small logo */
+        [data-testid="stHeader"] {
+            height: 30px !important;
+        }
+
+        /* Tighten the spacing around the small image */
+        [data-testid="stImage"] {
+            padding-top: 0px !important;
+            margin-bottom: -10px !important;
+        }
+                
+        /* FORCE ALERT/INFO BARS TO WHITE */
+        /* Target the main container and the inner colored div */
+        div[data-testid="stAlert"], 
+        div[data-testid="stNotificationContentInfo"],
+        div[data-testid="stNotificationContentSuccess"] {
+            background-color: #ffffff !important; 
+            border: 1px solid #d1d1d1 !important;
+            color: #531F78 !important;
+            border-radius: 10px !important;
+        }
+
+        /* Ensure the text inside is dark purple on the white background */
+        div[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p {
+            color: #531F78 !important;
+            font-weight: 500 !important;
+        }
+
+        /* Make the icon purple */
+        div[data-testid="stAlert"] svg {
+            fill: #531F78 !important;
+        }
+        /* 1. RESET ALL ALERTS TO DEFAULT */
+        /* This removes the global purple/white overrides so SUCCESS, ERROR, and WARNING revert */
+        div[data-testid="stAlert"] {
+            background-color: transparent !important;
+            border: none !important;
+        }
+
+        /* 2. TARGET THE 'NOTE' BOX SPECIFICALLY */
+        /* This looks for an info box that contains the text 'Note:' */
+        div[data-testid="stNotificationContentInfo"]:has(p:contains("Note:")),
+        div[data-testid="stAlert"]:has(p:contains("Note:")) {
+            background-color: #F1E6F9 !important; /* Your Soft Purple */
+            border: 1px solid #531F78 !important;  /* Your Dark Purple Border */
+            border-radius: 8px !important;
+        }
+
+        /* 3. STYLE THE TEXT INSIDE THE PURPLE NOTE ONLY */
+        div[data-testid="stAlert"]:has(p:contains("Note:")) [data-testid="stMarkdownContainer"] p {
+            color: #531F78 !important;
+            font-weight: 500 !important;
+        }
+
+        /* 4. STYLE THE ICON INSIDE THE PURPLE NOTE ONLY */
+        div[data-testid="stAlert"]:has(p:contains("Note:")) svg {
+            fill: #531F78 !important;
+            color: #531F78 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+
+def inject_static_streams():
+    """
+    Injects a fixed-position SVG of static curved lines that converge
+    through the centre of the screen (where the logo sits).
+    Uses the SYFT purple/green/red colour palette.
+    Call this once in main(), after apply_syft_pro_theme().
+    """
+    st.markdown("""
+    <style>
+      #syft-streams {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        pointer-events: none;   /* clicks pass straight through */
+        z-index: 0;             /* behind all Streamlit content */
+      }
+    </style>
+
+    <svg id="syft-streams"
+         viewBox="0 0 1000 600"
+         preserveAspectRatio="xMidYMid slice"
+         xmlns="http://www.w3.org/2000/svg">
+
+      <!--
+        All paths use cubic Bézier curves (C command).
+        They all pass through the viewport centre (~500, 260)
+        where the logo lives, then fan back out to the right edge.
+
+        Colours match the SYFT theme:
+          #531F78  – SYFT purple
+          #5DB87A  – Supported green
+          #D46A55  – Contradicted red/coral
+          #C8A028  – Misleading amber
+      -->
+
+      <!-- ── Purple streams ─────────────────────────────── -->
+      <path d="M-10,80  C200,80  380,255 500,260 C620,265 800,210 1010,170"
+            fill="none" stroke="#531F78" stroke-width="1.1" opacity="0.30"/>
+
+      <path d="M-10,160 C210,160 390,258 500,260 C610,262 790,235 1010,200"
+            fill="none" stroke="#531F78" stroke-width="0.9" opacity="0.22"/>
+
+      <path d="M-10,340 C210,340 390,263 500,260 C610,257 800,295 1010,330"
+            fill="none" stroke="#531F78" stroke-width="1.0" opacity="0.25"/>
+
+      <path d="M-10,420 C200,420 385,268 500,260 C615,252 800,340 1010,390"
+            fill="none" stroke="#531F78" stroke-width="0.8" opacity="0.18"/>
+
+      <!-- ── Green streams (Supported) ──────────────────── -->
+      <path d="M-10,110 C220,110 390,256 500,260 C610,264 810,220 1010,185"
+            fill="none" stroke="#5DB87A" stroke-width="1.0" opacity="0.28"/>
+
+      <path d="M-10,380 C215,380 388,265 500,260 C612,255 810,310 1010,355"
+            fill="none" stroke="#5DB87A" stroke-width="0.9" opacity="0.22"/>
+
+      <path d="M-10,30  C240,30  395,250 500,260 C605,270 800,180 1010,120"
+            fill="none" stroke="#5DB87A" stroke-width="0.7" opacity="0.16"/>
+
+      <!-- ── Red/coral streams (Contradicted) ───────────── -->
+      <path d="M-10,210 C200,210 392,259 500,260 C608,261 800,248 1010,240"
+            fill="none" stroke="#D46A55" stroke-width="1.1" opacity="0.28"/>
+
+      <path d="M-10,300 C205,300 391,261 500,260 C609,259 800,278 1010,295"
+            fill="none" stroke="#D46A55" stroke-width="0.9" opacity="0.22"/>
+
+      <path d="M-10,470 C195,470 383,272 500,260 C617,248 810,380 1010,440"
+            fill="none" stroke="#D46A55" stroke-width="0.8" opacity="0.16"/>
+
+      <!-- ── Amber streams (Misleading) ─────────────────── -->
+      <path d="M-10,500 C190,500 382,275 500,260 C618,245 815,400 1010,470"
+            fill="none" stroke="#C8A028" stroke-width="0.8" opacity="0.18"/>
+
+      <path d="M-10,140 C225,140 392,257 500,260 C608,263 815,225 1010,195"
+            fill="none" stroke="#C8A028" stroke-width="0.7" opacity="0.15"/>
+
+      <!-- ── Small dots where lines meet the centre ─────── -->
+      <circle cx="500" cy="260" r="2.5" fill="#531F78" opacity="0.25"/>
+
+    </svg>
+    """, unsafe_allow_html=True)
 
 
 def display_claim_and_rating(claim: dict, box_design) -> None:
@@ -107,8 +390,8 @@ def render_and_parse_input_boxes() -> tuple[str, str, str]:
                 index=0
             )
         if source_type == 'Choose an option...':
-            st.warning("Please select a source type to continue.")
-            st.stop()  # Prevent further execution until a valid source type is selected
+
+            st.info("💡 Tip: Select a source type to enable verification.")
 
     return user_input, input_format, source_type
 
@@ -122,7 +405,7 @@ def add_grey_background(y_positions: list[str]) -> go.Figure:
         y=y_positions,
         orientation='h',
         marker=dict(
-            color='rgb(242,242,242)',  # Transparent fill
+            color='rgba(255,255,255, 1)',  # Transparent fill
             line={"color": 'white', "width": 1}  # invisible border
         ),
         width=0.5,
@@ -281,7 +564,7 @@ def get_claims_and_ratings_from_input(user_input: str, input_format: str, source
 
 
 def verify_button(user_input: str, input_format: str, source_type: str) -> tuple[str, list[dict]] | None:
-    button_clicked = st.button('Verify!')
+    button_clicked = st.button('Syft!')
 
     if button_clicked:
         if user_input.strip() == "":
@@ -296,7 +579,7 @@ def verify_button(user_input: str, input_format: str, source_type: str) -> tuple
         with placeholder.container():
             jumping_loader()
             log_text = st.empty()
-            log_text.write("searching for relevant information...")
+            log_text.write("Syfting through our sources...")
 
         result = get_claims_and_ratings_from_input(
             user_input,
@@ -411,40 +694,151 @@ def render_results_screen(summary: str, claims_and_ratings: list[dict], screen_p
     with st.container(border=True, height=300):
         render_claims(claims_and_ratings)
 
-    if st.button('Verify another claim?'):
-        st.rerun()
+    # if st.button('Verify another claim?'):
+    #     st.rerun()
+
+
+# def render_input_page_ui(placeholder):
+#     """The SYFT Hero landing page logic."""
+#     with placeholder.container():
+#         # Large Branding
+#         _, center_logo, _ = st.columns([1, 2, 1])
+#         with center_logo:
+#             st.image("logo.png", use_container_width=True)
+#             st.markdown(
+#                 "<h3 style='text-align: center;'>Seek the truth.</h3>", unsafe_allow_html=True)
+
+#         # The actual Input Form
+#         user_input, input_format, source_type = render_and_parse_input_boxes()
+
+#         # Action Button
+#         result = verify_button(user_input, input_format, source_type)
+
+#         if result:
+#             summary, claims = result
+#             st.session_state.page = "Results"  # Toggle state
+#             render_results_screen(summary, claims, placeholder)
 
 
 def main():
+    apply_syft_pro_theme()
+    inject_static_streams()
 
-    if "page" not in st.session_state:
-        st.session_state.page = "Input"
+    # --- 1. SMART HEADER LOGIC (Top Left) ---
+    # Show the small logo ONLY IF results exist OR we are NOT on the Verifier tab's input state
+    col_logo, _ = st.columns([1, 10])
+    with col_logo:
+        st.image("logo.png", width=70)
 
-    history.render_sidebar()
-
-    placeholder = st.empty()
-
-    if st.session_state.page == "Input":
-        result = render_input_screen(placeholder)
-
-        if result is not None:
-            summary, claims_and_ratings = result
-            render_results_screen(summary, claims_and_ratings, placeholder)
-
-    elif st.session_state.page == "Input History List":
-        history.render_history_list_screen(placeholder)
-
-    elif st.session_state.page == "Input Detail":
+    # --- 2. DETAIL VIEW OVERRIDE ---
+    if st.session_state.page == "Input Detail":
         if st.session_state.selected_input_id:
             history.render_history_detail_screen(
-                st.session_state.selected_input_id, placeholder)
+                st.session_state.selected_input_id, st.container())
+            # if st.button("← Back to History", key="back_to_hist"):
+            #     st.session_state.page = "Input History List"
+            #     st.rerun()
+        return
+
+    # --- 3. MAIN NAVIGATION TABS ---
+    tab_verify, tab_history, tab_about = st.tabs(
+        ["VERIFIER", "HISTORY", "ABOUT US"])
+
+    with tab_verify:
+        if "results" not in st.session_state:
+            st.session_state.page = "Input"  # Mark as landing page
+
+            # --- THE LARGE CENTER LOGO (Input Screen Only) ---
+            _, center_logo, _ = st.columns([1, 1.2, 1])
+            with center_logo:
+                st.image("logo.png", use_container_width=True)
+
+            st.markdown(
+                "<p style='text-align: center; color: #666; font-size: 1.1rem;'>Analyze claims. Compare sources. Unmask falsehoods.</p>",
+                unsafe_allow_html=True
+            )
+
+            # --- INPUT FORM ---
+            user_input, input_format, source_type = render_and_parse_input_boxes()
+            verification_result = verify_button(
+                user_input, input_format, source_type)
+
+            if verification_result:
+                st.session_state.results = verification_result
+                st.session_state.page = "Results"  # Switch state to trigger small logo
+                st.rerun()
         else:
-            st.warning("No record selected. Returning to input screen.")
-            st.session_state.page = "Input"
+            # --- RESULTS SCREEN ---
+            summary, claims = st.session_state.results
+            render_results_screen(summary, claims, st.container())
+
+            if st.button("Verify another claim", key="verify_another"):
+                if "results" in st.session_state:
+                    del st.session_state.results
+                st.session_state.page = "Input"
+                st.rerun()
+
+    with tab_history:
+        st.session_state.page = "History"
+        history.render_history_list_screen(st.container())
+
+
+    with tab_about:
+        st.session_state.page = "About"
+        render_about_us()
+
+# --- HELPER CLEANUP ---
+# You can delete the separate 'render_input_page_ui' and 'render_input_screen'
+# functions if they are just duplicates of the logic now inside main().
+
+def render_input_page_ui(placeholder):
+    with placeholder.container():
+        # Central Branding
+        _, center_logo, _ = st.columns([0.5, 2, 0.5])
+        with center_logo:
+            st.image("big_logo.png", use_container_width=True)
+            st.markdown(
+                "<p style='text-align: center; color: #666; font-size: 1.1rem;'>Analyze claims. Compare sources. Unmask falsehoods.</p>", unsafe_allow_html=True)
+
+        # The Functional Form
+        user_input, input_format, source_type = render_and_parse_input_boxes()
+
+        # Verify Button
+        result = verify_button(user_input, input_format, source_type)
+        if result:
+            st.session_state.results = result
             st.rerun()
 
-    elif st.session_state.page == "About Us":
-        render_about_us()
+# def main():
+
+#     if "page" not in st.session_state:
+#         st.session_state.page = "Input"
+
+#     history.render_sidebar()
+
+#     placeholder = st.empty()
+
+#     if st.session_state.page == "Input":
+#         result = render_input_screen(placeholder)
+
+#         if result is not None:
+#             summary, claims_and_ratings = result
+#             render_results_screen(summary, claims_and_ratings, placeholder)
+
+#     elif st.session_state.page == "History":
+#         history.render_history_list_screen(placeholder)
+
+#     elif st.session_state.page == "Input Detail":
+#         if st.session_state.selected_input_id:
+#             history.render_history_detail_screen(
+#                 st.session_state.selected_input_id, placeholder)
+#         else:
+#             st.warning("No record selected. Returning to input screen.")
+#             st.session_state.page = "Input"
+#             st.rerun()
+
+#     elif st.session_state.page == "About Us":
+#         render_about_us()
 
 
 if __name__ == "__main__":
