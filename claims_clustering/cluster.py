@@ -6,6 +6,7 @@ from sklearn.metrics import silhouette_score
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 import umap
+from pydantic import BaseModel
 
 from connection import get_db_connection, get_secrets, get_openai_client
 
@@ -91,47 +92,77 @@ def embed_claims(claims_df: pd.DataFrame) -> pd.DataFrame:
     return claims_df
 
 
-def get_cluster_name_prompt(claims_df: pd.DataFrame, cluster_num: int) -> str:
+def get_cluster_name_and_desc_prompt(claims_df: pd.DataFrame, cluster_num: int) -> str:
     '''
     Creates a prompt for the LLM to generate a concise name for a given cluster.
     '''
     cluster_claims = claims_df[claims_df['cluster']
                                == cluster_num]['claim'].tolist()
-    prompt = f"Given the following claims, provide a concise name that captures the common theme:\n\n"
+    prompt = f"""
+        You are an expert data analyst. Below is a list of text claims grouped into a single cluster based on their semantic similarity.
+
+        ### Task:
+        1. **Cluster Name**: Create a concise, high-level name (3-6 words) that captures the core theme.
+        2. **Summary**: Provide a description that talks about one or two common misconceptions in this cluster. Focus on the most prevalent misinformation themes.
+
+        example output format:
+        Cluster Name: Flat Earth Conspiracies
+        Summary: 'The common misconceptions in this topic are:
+        1. The Earth is flat and disc-shaped.
+        2. Satellite images showing a round Earth are fabricated.'
+
+        ### Claims:
+    """
     for claim in cluster_claims:
         prompt += f"- {claim}\n"
     prompt += "\nCluster Name:"
     return prompt
 
 
-def get_cluster_name_from_llm(claims_df: pd.DataFrame, cluster_num: int) -> str:
+class Cluster(BaseModel):
+    cluster_name: str
+    description: str
+
+
+def get_cluster_name_and_desc_from_llm(claims_df: pd.DataFrame, cluster_num: int) -> Cl:
     '''
     For a given cluster number, 
     creates a prompt with the claims in that cluster and 
-    sends it to the LLM to get a concise cluster name.
+    sends it to the LLM to get a concise cluster name and description.
     '''
-    prompt = get_cluster_name_prompt(claims_df, cluster_num)
+    prompt = get_cluster_name_and_desc_prompt(claims_df, cluster_num)
     client = get_openai_client()
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that summarizes clusters of claims."},
-            {"role": "user", "content": prompt}
+    response = client.responses.parse(
+        model="gpt-4o-2024-08-06",
+        input=[
+            {
+                "role": "system",
+                "content": prompt
+            },
         ],
-        max_tokens=50,
-        temperature=0.5
+        text_format=Cluster,
     )
-    cluster_name = response.choices[0].message.content.strip()
-    return cluster_name
+
+    cluster_data = response.output_parsed
+    return cluster_data
 
 
 def assign_cluster_names(claims_df: pd.DataFrame) -> pd.DataFrame:
     '''For each unique cluster number, get a name from the LLM and map it back to the DataFrame.'''
     cluster_names = {}
     for cluster_num in claims_df['cluster'].unique():
-        cluster_name = get_cluster_name_from_llm(claims_df, cluster_num)
-        cluster_names[cluster_num] = cluster_name
-    claims_df['cluster_name'] = claims_df['cluster'].map(cluster_names)
+        cluster_name_and_desc = get_cluster_name_and_desc_from_llm(
+            claims_df, cluster_num)
+        cluster_name = cluster_name_and_desc.cluster_name
+        cluster_description = cluster_name_and_desc.description
+        cluster_names[cluster_num] = {
+            'name': cluster_name,
+            'description': cluster_description
+        }
+    claims_df['cluster_name'] = claims_df['cluster'].map(
+        lambda x: cluster_names[x]['name'])
+    claims_df['cluster_description'] = claims_df['cluster'].map(
+        lambda x: cluster_names[x]['description'])
     return claims_df
 
 
@@ -195,5 +226,9 @@ if __name__ == "__main__":
     claims_df = convert_claims_evidence_to_df(claims)
     clustered_claims_df = cluster_claims(claims_df)
     print(clustered_claims_df["cluster_name"].value_counts())
-    print(clustered_claims_df[['claim', 'cluster',
-          'cluster_name', 'evidence']].head(20))
+    for claim in clustered_claims_df.itertuples():
+        print(f"Claim: {claim.claim}")
+        print(f"Evidence: {claim.evidence}")
+        print(f"Cluster: {claim.cluster_name}")
+        print(f"Description: {claim.cluster_description}")
+        print("-----")
