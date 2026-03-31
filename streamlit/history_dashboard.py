@@ -1,8 +1,7 @@
-import streamlit as st
 import db_logic as db
 import chatbot as chat
 import plotly.graph_objects as go
-import chatbot as chat
+import streamlit as st
 
 # -- SIDEBAR: CHAT HISTORY NAVIGATION --
 
