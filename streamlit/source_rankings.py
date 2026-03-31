@@ -3,14 +3,13 @@ import pandas as pd
 from db_logic import get_source_ratings
 import plotly.express as px
 
-st.title(" News Source Reliability Leaderboard")
+st.title("News Source Unreliability Rankings")
 
 # --- Sample Data (Replace with your DB connection) ---
 # data = run_query(sql_above)
 raw_data = get_source_ratings()
 df = pd.DataFrame(raw_data)
 
-st.markdown("### Top 10 Most Unreliable Sources")
 st.info("Ranking is based on the percentage of claims marked as **Contradicted** or **Misleading**.")
 
 
@@ -43,33 +42,36 @@ fig.update_layout(
     yaxis={'categoryorder': 'total ascending'},
     xaxis_range=[0, 100],
     height=500,
-    margin=dict(l=20, r=20, t=40, b=20)
+    margin=dict(l=20, r=20, t=40, b=20),
+    coloraxis_showscale=False,
+    showlegend=False
 )
 
+fig.update_traces(width=0.3)
+
 # 4. Display in Streamlit
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')
 
+with st.expander("Detailed Rankings and Insights"):
+    for index, row in df.iterrows():
+        color = "red" if row['unreliability_pct'] > 70 else "orange"
 
-for index, row in df.iterrows():
-    color = "red" if row['unreliability_pct'] > 70 else "orange"
+        with st.expander(f"#{index+1} {row['source_type_name']} — {row['unreliability_pct']}% Unreliable"):
+            col1, col2 = st.columns([2, 1])
 
-    with st.expander(f"#{index+1} {row['source_type_name']} — {row['unreliability_pct']}% Unreliable"):
-        col1, col2 = st.columns([2, 1])
+            with col1:
+                st.write(
+                    f"**Overall Insight:** This source has had **{row['total_inputs']}** claims analyzed.")
+                if row['unreliability_pct'] > 80:
+                    st.error(
+                        "⚠️ **High Risk:** The vast majority of shared content from this source is factually incorrect.")
+                else:
+                    st.warning(
+                        "⚡ **Caution:** This source frequently mixes factual data with misleading context.")
 
-        with col1:
-            # Change row['total_claims'] to row['total_inputs']
-            st.write(
-                f"**Overall Insight:** This source has had **{row['total_inputs']}** claims analyzed.")
-            if row['unreliability_pct'] > 80:
-                st.error(
-                    "⚠️ **High Risk:** The vast majority of shared content from this source is factually incorrect.")
-            else:
-                st.warning(
-                    "⚡ **Caution:** This source frequently mixes factual data with misleading context.")
-
-        with col2:
-            st.progress(float(row['unreliability_pct']) / 100)
-            st.metric("Failure Rate", f"{row['unreliability_pct']}%")
+            with col2:
+                st.progress(float(row['unreliability_pct']) / 100)
+                st.metric("Failure Rate", f"{row['unreliability_pct']}%")
 
 # --- Overall Summary Statistics ---
 st.divider()
