@@ -3,14 +3,14 @@ import pandas as pd
 from db_logic import get_source_ratings
 import plotly.express as px
 
-st.title("⚖️ News Source Reliability Leaderboard")
+st.title(" News Source Reliability Leaderboard")
 
 # --- Sample Data (Replace with your DB connection) ---
 # data = run_query(sql_above)
 raw_data = get_source_ratings()
 df = pd.DataFrame(raw_data)
 
-st.markdown("### 🚨 Top 10 Most Unreliable Sources")
+st.markdown("### Top 10 Most Unreliable Sources")
 st.info("Ranking is based on the percentage of claims marked as **Contradicted** or **Misleading**.")
 
 
