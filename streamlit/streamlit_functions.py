@@ -142,7 +142,7 @@ def get_openai_client() -> OpenAI:
         raise RuntimeError("Failed to initialize OpenAI client.")
 
 
-def get_summary_and_claims_from_text(text_input: str) -> list[Claim]:
+def get_summary_and_claims_from_text(text_input: str, llm_url: str) -> tuple[str, list[Claim]]:
     """This function uses an LLM to extract a list of claims made
     in a body of text.
 
@@ -150,19 +150,18 @@ def get_summary_and_claims_from_text(text_input: str) -> list[Claim]:
     from the web-scraping lambda.
     """
 
-    client = get_openai_client()
+    payload = {
+        "dv_role": CLAIM_EXTRACTION_DEVELOPER_ROLE,
+        "prompt": text_input,
+        "structured_output": "unrated_claims",
+        "success_log": "Successfully extracted claims from text input."
+    }
 
-    raw_output = query_llm(text_input, client,
-                           CLAIM_EXTRACTION_DEVELOPER_ROLE,
-                           "Successfully extracted claims from text input.", UnratedClaimResponse)
+    response = post_to_lambda(llm_url, payload)
+    summary = response["summary"]
+    claims = [Claim(claim_text=claim) for claim in response["claims"]]
 
-    summary_part = raw_output.summary
-
-    claims_list = [
-        Claim(claim_text=claim) for claim in raw_output.claims
-    ]
-
-    return summary_part, claims_list
+    return summary, claims
 
 
 def query_llm(prompt: str, client: OpenAI, developer_role: dict,
@@ -198,7 +197,7 @@ def query_llm(prompt: str, client: OpenAI, developer_role: dict,
         raise RuntimeError("Failed to query LLM. Check logs for details.")
 
 
-def post_to_lambda(lambda_url: str, payload: dict) -> dict:
+def post_to_lambda(lambda_url: str, payload: dict) -> dict | list:
     """Sends a POST request to a lambda URL
     and returns the response as a dict."""
 
@@ -261,7 +260,7 @@ def send_claims_to_wiki_lambda(
     return response["wiki_context"]
 
 
-def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict]) -> RatedClaimResponse:
+def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_context: list[dict], llm_url:str) -> list[dict]:
     """
     This functions sends the claims to openai along with context from
     Wikipedia and RAG. 
@@ -271,21 +270,30 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
     Openai will also summarize the overall user input in a short description.
     """
 
-    client = get_openai_client()
+    # client = get_openai_client()
 
     prompt = create_llm_prompt(claims, wiki_context, rag_context)
 
-    response = query_llm(prompt, client,
-                         CLAIM_RATING_DEVELOPER_ROLE,
-                         "Successfully rated claims based on Wikipedia and RAG context.", RatedClaimResponse)
+    payload = {
+        "dv_role": CLAIM_EXTRACTION_DEVELOPER_ROLE,
+        "prompt": prompt,
+        "structured_output": "rated_claims",
+        "success_log": "Successfully rated claims based on Wikipedia and RAG context."
+    }
 
-    logging.info(f"""LLM returned response example: 
-                {response.rated_claims[0].claim}
-                {response.rated_claims[0].rating}
-                {response.rated_claims[0].explanation}
-                {response.rated_claims[0].sources}""")
+    response = post_to_lambda(llm_url, payload)
 
-    return response
+    # response = query_llm(prompt, client,
+    #                      CLAIM_RATING_DEVELOPER_ROLE,
+    #                      "Successfully rated claims based on Wikipedia and RAG context.", RatedClaimResponse)
+
+    # logging.info(f"""LLM returned response example: 
+    #             {response.rated_claims[0].claim}
+    #             {response.rated_claims[0].rating}
+    #             {response.rated_claims[0].explanation}
+    #             {response.rated_claims[0].sources}""")
+
+    return response.json()
 
 
 def convert_llm_response_to_dict(llm_response: RatedClaimResponse) -> list[dict]:
@@ -399,6 +407,7 @@ def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], ra
         raise ValueError("Wikipedia context list is empty.")
     if rag_context == []:
         raise ValueError("RAG context list is empty.")
+
 
 if __name__ == "__main__":
     # Example usage
