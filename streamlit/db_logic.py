@@ -136,11 +136,12 @@ def input_table_insert_execution(cur, input_text: str, input_summary: str, sourc
     input_id = cur.fetchone()['input_id']
     return input_id
 
-def claim_table_insert_execution(cur, input_id: int, 
-claim: str, 
-rating: str, 
-evidence: str, 
-sources:list[str]) -> None:
+
+def claim_table_insert_execution(cur, input_id: int,
+                                 claim: str,
+                                 rating: str,
+                                 evidence: str,
+                                 sources: list[str]) -> None:
     """ Helper function to generate the SQL query for inserting claims. """
     cur.execute("""
         INSERT INTO claim (input_id, claim_text, rating, evidence, sources)
@@ -180,7 +181,7 @@ def archive_user_input(input_text: str,
             # Insert claims
             for claim in claims:
                 claim_table_insert_execution(cur, input_id, claim['claim'],
-                                            claim['rating'], claim['evidence'], claim['sources'])
+                                             claim['rating'], claim['evidence'], claim['sources'])
             conn.commit()
             logging.info(
                 f"Successfully archived user input with input_id: {input_id}")
@@ -210,7 +211,7 @@ def get_source_ratings():
                 2) AS unreliability_pct
             FROM source_type s
             JOIN input i ON s.source_type_id = i.source_type_id
-            JOIN metrics m ON i.metrics_id = m.metrics_id  -- This is the corrected line
+            JOIN metrics m ON i.metrics_id = m.metrics_id 
             GROUP BY s.source_type_id, s.source_type_name
             ORDER BY unreliability_pct DESC
             LIMIT 10;
