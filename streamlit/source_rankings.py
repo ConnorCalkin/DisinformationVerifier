@@ -5,8 +5,7 @@ import plotly.express as px
 
 st.title("News Source Unreliability Rankings")
 
-# --- Sample Data (Replace with your DB connection) ---
-# data = run_query(sql_above)
+
 raw_data = get_source_ratings()
 df = pd.DataFrame(raw_data)
 
