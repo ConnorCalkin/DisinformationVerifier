@@ -143,6 +143,7 @@ resource "aws_ecs_task_definition" "dashboard_task" {
             ]
             environment = [
                 { name = "RAG_URL", value = aws_lambda_function_url.rag_lambda_url.function_url },
+                { name = "CLUSTER_URL", value = aws_lambda_function_url.cluster_lambda_url.function_url },
                 { name = "WIKI_URL", value = aws_lambda_function_url.wiki_ner_lambda_url.function_url },
                 { name = "SCRAPE_URL", value = aws_lambda_function_url.scraper_url.function_url },
                 { name = "RDS_HOST",       value = aws_db_instance.rds_instance.address },

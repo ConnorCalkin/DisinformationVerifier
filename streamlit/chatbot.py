@@ -23,6 +23,8 @@ import db_logic as db
 import history_dashboard as history
 import streamlit as st
 
+from cluster import get_claims_clustered_with_evidence
+
 load_dotenv()
 
 
@@ -51,7 +53,6 @@ if "page" not in st.session_state:
 
 if "selected_input_id" not in st.session_state:
     st.session_state.selected_input_id = None
-
 
 
 def apply_syft_pro_theme():
@@ -258,6 +259,7 @@ def apply_syft_pro_theme():
         }
         </style>
     """, unsafe_allow_html=True)
+
 
 def display_claim_and_rating(claim: dict, box_design) -> None:
     """Display a claim and its rating"""
@@ -649,6 +651,24 @@ def render_results_screen(
         render_claims(claims_and_ratings)
 
 
+def render_claim_clusters(claims_and_evidence: list[dict]) -> None:
+    """Render the claim clusters to display claims grouped by similarity."""
+
+    st.subheader("Common Misinformation Themes")
+
+    if not claims_and_evidence:
+        return
+
+    claims_and_evidence = sorted(
+        claims_and_evidence, key=lambda x: len(x['claims']), reverse=True)[:3]
+
+    cols = st.columns(len(claims_and_evidence))
+    for cluster, col in zip(claims_and_evidence, cols):
+        with col:
+            with st.expander(cluster['cluster_name']):
+                st.write(f"Description: {cluster['description']}")
+
+
 def main():
     apply_syft_pro_theme()
     col_logo, _ = st.columns([1, 10])
@@ -691,6 +711,12 @@ def main():
             st.markdown("<div style='margin-bottom: 60px; margin-top: -25px;'></div>",
                         unsafe_allow_html=True)
 
+            # --- CLAIMS ---
+
+            # Placeholder for claim clusters, replace with actual clustering logic
+            # Call the cluster function to get claim clusters
+            clusters = get_claims_clustered_with_evidence()
+            render_claim_clusters(clusters)
 
             # --- INPUT FORM ---
             user_input, input_format, source_type = render_and_parse_input_boxes()
@@ -715,7 +741,6 @@ def main():
     with tab_history:
         st.session_state.page = "History"
         history.render_history_list_screen(st.container())
-
 
     with tab_about:
         st.session_state.page = "About"
