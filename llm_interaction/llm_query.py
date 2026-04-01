@@ -19,7 +19,7 @@ class RatedClaim(BaseModel):
     claim: str
     rating: str
     explanation: str
-    sources: list[str]
+    source_urls: list[str]
 
 
 class RatedClaimResponse(BaseModel):
@@ -37,10 +37,6 @@ class NamedEntity(BaseModel):
 
 class NamedEntityResponse(BaseModel):
     search_terms: list[NamedEntity]
-
-
-""" {"search_terms": ["NASA", "Artemis program", "2024 Solar Eclipse"]}}"""
-"""{"type": "json_object"}"""
 
 
 structured_outputs = {
@@ -146,8 +142,8 @@ def parse_response(
             {
                 "claim": rated_claim.claim,
                 "rating": rated_claim.rating,
-                "explanation": rated_claim.explanation,
-                "sources": rated_claim.sources
+                "evidence": rated_claim.explanation,
+                "sources": rated_claim.source_urls
             }
             for rated_claim in llm_response.rated_claims
         ])

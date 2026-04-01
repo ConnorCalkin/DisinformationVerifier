@@ -154,7 +154,7 @@ def get_summary_and_claims_from_text(text_input: str, llm_url: str) -> tuple[str
         "dv_role": CLAIM_EXTRACTION_DEVELOPER_ROLE,
         "prompt": text_input,
         "structured_output": "unrated_claims",
-        "success_log": "Successfully extracted claims from text input."
+        "success_message": "Successfully extracted claims from text input."
     }
 
     logging.info(f"Sending payload to LLM for claim extraction. {payload}")

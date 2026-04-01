@@ -704,8 +704,8 @@ def main():
                 st.rerun()
         else:
             # --- RESULTS SCREEN ---
-            summary, claims = st.session_state.results
-            render_results_screen(summary, claims, st.container())
+            summary, claims, metrics = st.session_state.results
+            render_results_screen(summary, claims, metrics, st.container())
 
             if st.button("Verify another claim", key="verify_another"):
                 if "results" in st.session_state:
