@@ -157,9 +157,13 @@ def get_summary_and_claims_from_text(text_input: str, llm_url: str) -> tuple[str
         "success_log": "Successfully extracted claims from text input."
     }
 
+    logging.info(f"Sending payload to LLM for claim extraction. {payload}")
     response = post_to_lambda(llm_url, payload)
     summary = response["summary"]
     claims = [Claim(claim_text=claim) for claim in response["claims"]]
+
+    logging.info(f"LLM returned summary: {summary}")
+    logging.info(f"LLM returned claims: {[claim.claim_text for claim in claims]}")
 
     return summary, claims
 
@@ -278,7 +282,7 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
         "dv_role": CLAIM_EXTRACTION_DEVELOPER_ROLE,
         "prompt": prompt,
         "structured_output": "rated_claims",
-        "success_log": "Successfully rated claims based on Wikipedia and RAG context."
+        "success_message": "Successfully rated claims based on Wikipedia and RAG context."
     }
 
     response = post_to_lambda(llm_url, payload)
@@ -293,7 +297,7 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
     #             {response.rated_claims[0].explanation}
     #             {response.rated_claims[0].sources}""")
 
-    return response.json()
+    return response
 
 
 def convert_llm_response_to_dict(llm_response: RatedClaimResponse) -> list[dict]:

@@ -614,7 +614,7 @@ def render_input_screen(screen_placeholder) -> tuple[str, list[dict]] | None:
         user_input, input_format, source_type = render_and_parse_input_boxes()
 
         try:
-            result = render_verify_button(
+            result = verify_button(
                 user_input, input_format, source_type)
             return result
         except RuntimeError as e:
