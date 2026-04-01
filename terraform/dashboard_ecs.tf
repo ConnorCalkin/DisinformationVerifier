@@ -142,11 +142,10 @@ resource "aws_ecs_task_definition" "dashboard_task" {
                 }
             ]
             environment = [
-                { name = "RAG_URL",     value = aws_lambda_function_url.rag_lambda_url.function_url },
-                { name = "CLUSTER_URL", value = aws_lambda_function_url.cluster_lambda_url.function_url },
-                { name = "WIKI_URL",    value = aws_lambda_function_url.wiki_ner_lambda_url.function_url },
-                { name = "SCRAPE_URL",  value = aws_lambda_function_url.scraper_url.function_url },
-                { name = "LLM_URL",     value = aws_lambda_function_url.pipeline_lambda_url.function_url },
+                { name = "RAG_URL", value = aws_lambda_function_url.rag_lambda_url.function_url },
+                { name = "WIKI_URL", value = aws_lambda_function_url.wiki_ner_lambda_url.function_url },
+                { name = "SCRAPE_URL", value = aws_lambda_function_url.llm_endpoint.function_url },
+                { name  = "LLM_URL", value = aws_lambda_function_url.llm_endpoint.function_url },
                 { name = "RDS_HOST",       value = aws_db_instance.rds_instance.address },
                 { name = "RDS_PORT",       value = "5432" },
                 { name = "RDS_DB",         value = "user_history" },
@@ -165,9 +164,6 @@ resource "aws_ecs_task_definition" "dashboard_task" {
             }
         }
     ])
-    lifecycle {
-      ignore_changes = [container_definitions]
-    }
 }
 
 resource "aws_security_group" "ecs_sg" {
@@ -202,11 +198,11 @@ resource "aws_ecs_service" "dashboard_service" {
         assign_public_ip = true
     }
 
-    lifecycle {
-    ignore_changes = [
-      desired_count,   # Let Auto Scaling handle the scaling
-      task_definition, # If you use 'aws ecs update-service' in CI/CD
-    ]
-  }
+    # lifecycle {
+    # ignore_changes = [
+    #   desired_count,   # Let Auto Scaling handle the scaling
+    #   task_definition, # If you use 'aws ecs update-service' in CI/CD
+    # ]
+#   }
 }
     
