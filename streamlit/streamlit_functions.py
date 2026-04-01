@@ -211,6 +211,8 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict | list:
     if "claims" in payload:
         payload["queries"] = payload["claims"]  # Renaming for RAG lambda
 
+    logging.info(f"Final payload sent to lambda: {payload}")
+
     response = requests.post(
         lambda_url,
         json=payload
