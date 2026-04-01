@@ -29,38 +29,11 @@ resource "aws_iam_role" "iam_for_lambda" {
   })
 }
 
-# Logging & Secrets Permissions
-resource "aws_iam_role_policy" "lambda_logging_and_secrets" {
-  name = "lambda-base-permissions"
-  role = aws_iam_role.iam_for_lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = "arn:aws:logs:*:*:*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = "secretsmanager:GetSecretValue"
-        # Secure this by replacing "*" with your specific Secret ARN if possible
-        Resource = aws_secretsmanager_secret.credentials.arn 
-      }
-    ]
-  })
-}
-
 resource "aws_lambda_function" "llm_interaction_lambda" {
   function_name = "c22-dv-llm-interaction-service"
   role          = aws_iam_role.iam_for_lambda.arn
   package_type  = "Image"
-  architectures = ["arm64"]
+  architectures = ["x86_64"]
 
   # Points to the image you pushed to your ECR
   image_uri = "${aws_ecr_repository.llm-interaction-repo.repository_url}:latest"
@@ -92,7 +65,51 @@ resource "aws_lambda_function_url" "llm_endpoint" {
   }
 }
 
+# --- Keep your existing ECR, IAM, and Secrets resources as they were ---
+
+# 1. Explicitly define the Log Group
+# Note: The name MUST follow the format /aws/lambda/<function_name>
+resource "aws_cloudwatch_log_group" "lambda_logging" {
+  name              = "/aws/lambda/${aws_lambda_function.llm_interaction_lambda.function_name}"
+  retention_in_days = 7 # Automatically cleans up logs after a week
+}
+
+# 2. Update your IAM policy for specific Log Group access (Optional but Best Practice)
+resource "aws_iam_role_policy" "lambda_logging_and_secrets" {
+  name = "lambda-base-permissions"
+  role = aws_iam_role.iam_for_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        # Restricting to the specific log group we just created
+        Resource = "${aws_cloudwatch_log_group.lambda_logging.arn}:*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = aws_secretsmanager_secret.credentials.arn 
+      }
+    ]
+  })
+}
+
+# --- Keep your aws_lambda_function and aws_lambda_function_url as they were ---
+
+# 3. New Outputs
 output "lambda_url" {
   description = "The HTTP URL endpoint for the LLM Lambda"
   value       = aws_lambda_function_url.llm_endpoint.function_url
+}
+
+output "cloudwatch_log_group" {
+  description = "The name of the CloudWatch Log Group for debugging"
+  value       = aws_cloudwatch_log_group.lambda_logging.name
 }

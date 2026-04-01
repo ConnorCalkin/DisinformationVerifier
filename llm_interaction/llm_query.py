@@ -124,34 +124,46 @@ def query_llm(prompt: str, client: OpenAI, developer_role: dict,
         raise RuntimeError(f"Failed to query LLM. Check logs for details.{e}")
 
 
-def parse_response(llm_response: UnratedClaimResponse | RatedClaimResponse | NamedEntityResponse):
-    """Parse the llm response into acceptable JSON format."""
+def parse_response(
+    llm_response: (
+        UnratedClaimResponse
+        | RatedClaimResponse
+        | NamedEntityResponse
+    )
+) -> dict:
+    """Parse the llm response into a Lambda-
+    compatible dict with statusCode and body."""
 
     if isinstance(llm_response, UnratedClaimResponse):
-        return json.dumps({
+        body = json.dumps({
             "summary": llm_response.summary,
             "claims": llm_response.claims
-        }), 200
+        })
+        return {"statusCode": 200, "body": body}
 
     if isinstance(llm_response, RatedClaimResponse):
-        return json.dumps([
+        body = json.dumps([
             {
                 "claim": rated_claim.claim,
                 "rating": rated_claim.rating,
                 "explanation": rated_claim.explanation,
                 "sources": rated_claim.sources
             }
-            for rated_claim in llm_response
-        ]), 200
+            for rated_claim in llm_response.rated_claims
+        ])
+        return {"statusCode": 200, "body": body}
 
     if isinstance(llm_response, NamedEntityResponse):
-        return json.dumps([
-            named_entity.name for named_entity in llm_response
+        body = json.dumps([
+            named_entity.name
+            for named_entity in llm_response.search_terms
         ])
+        return {"statusCode": 200, "body": body}
 
-    return json.dumps({
+    error_body = json.dumps({
         "error": "Unknown 'structured_output' received."
-    }), 400
+    })
+    return {"statusCode": 400, "body": error_body}
 
 
 def validate_event(event: dict) -> None:
@@ -201,6 +213,7 @@ def lambda_handler(event, context):
                              success_message, structured_output)
 
     except Exception as e:
-        return json.dumps({"error": f"{e}"}), 400
+        error_body = json.dumps({"error": f"{e}"})
+        return {"statusCode": 400, "body": error_body}
 
     return parse_response(response)
