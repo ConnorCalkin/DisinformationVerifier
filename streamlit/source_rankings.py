@@ -15,7 +15,8 @@ def load_and_process_data():
 
 
 def create_unreliability_chart(df):
-    """Generates the Plotly horizontal bar chart."""
+    """Generates a polished, professional Plotly horizontal bar chart."""
+    # Sort for a clean descending visual flow
     chart_df = df.sort_values(by="unreliability_pct", ascending=True)
 
     fig = px.bar(
@@ -23,28 +24,64 @@ def create_unreliability_chart(df):
         x="unreliability_pct",
         y="source_type_name",
         orientation='h',
-        title="Relative Unreliability by Source",
+        title="<b>Relative Unreliability by Source</b>",  # Bold title for hierarchy
         labels={
-            "unreliability_pct": "Unreliability (%)", "source_type_name": "News Source"},
+            "unreliability_pct": "Unreliability (%)",
+            "source_type_name": "Source Type"
+        },
         hover_data={
             "total_inputs": True,
             "total_contradicted": True,
             "total_misleading": True,
-            "unreliability_pct": ":.2f"
+            "unreliability_pct": ":.1f"
         },
         color="unreliability_pct",
-        color_continuous_scale="Reds"
+        # Use a more sophisticated color scale (Sunset or Plasma looks more modern than just Reds)
+        color_continuous_scale=["#FFC1C1", "#531F78"]
+    )
+
+    fig.update_traces(
+        width=0.5,  # Slightly thicker bars for a "heftier" feel
+        marker_line_color='rgba(0,0,0,0)',  # No harsh borders
+        marker_pattern_shape="",  # Ensure clean fill
+        # This creates the "Rounded" look in modern Plotly
+        marker=dict(
+            line=dict(width=0),
+            # ROUNDED CORNERS (Only available in recent Plotly versions)
+            cornerradius=10
+        )
     )
 
     fig.update_layout(
-        yaxis={'categoryorder': 'total ascending'},
-        xaxis_range=[0, 100],
+        # 1. CLEAN BACKGROUND
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+
+        # 2. TYPOGRAPHY
+        font=dict(family="Inter, sans-serif", size=13, color="#444"),
+        title_font=dict(size=20, color="#531F78"),
+
+        # 3. AXIS CLEANUP
+        xaxis=dict(
+            range=[0, 105],  # Extra 5% breathing room for labels
+            showgrid=True,
+            gridcolor='rgba(200, 200, 200, 0.2)',  # Very faint grid
+            zeroline=False,
+            ticksuffix="%"
+        ),
+        yaxis=dict(
+            categoryorder='total ascending',
+            showgrid=False,
+            zeroline=False
+        ),
+
+        # 4. DIMENSIONS & MARGINS
         height=500,
-        margin=dict(l=20, r=20, t=40, b=20),
+        margin=dict(l=20, r=40, t=80, b=40),
         coloraxis_showscale=False,
         showlegend=False
     )
-    fig.update_traces(width=0.3)
+
     return fig
 
 # --- 3. UI Components ---
