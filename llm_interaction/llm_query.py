@@ -9,6 +9,7 @@ import boto3
 import json
 from openai import OpenAI
 from pydantic import BaseModel
+from typing import Literal
 
 _CACHED_SECRET = None
 _OPENAI_CLIENT = None
@@ -17,7 +18,7 @@ sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
 
 class RatedClaim(BaseModel):
     claim: str
-    rating: str
+    rating: Literal["CONTRADICTED", "UNSURE", "SUPPORTED", "MISLEADING"]
     explanation: str
     source_urls: list[str]
 
