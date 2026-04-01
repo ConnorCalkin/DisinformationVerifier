@@ -29,6 +29,7 @@ load_dotenv()
 WIKI_URL = os.getenv("WIKI_URL")
 RAG_URL = os.getenv("RAG_URL")
 SCRAPE_URL = os.getenv("SCRAPE_URL")
+LLM_URL = os.getenv("LLM_URL")
 
 INPUT_FORMAT_URL = 'URL'
 INPUT_FORMAT_CLAIM = 'Claim'
@@ -436,11 +437,11 @@ def get_unrated_claims_from_input(user_input: str, input_format: str) -> tuple[s
     if input_format == INPUT_FORMAT_URL:
         article_body = send_url_to_web_scraping_lambda(
             user_input, SCRAPE_URL)
-        return get_summary_and_claims_from_text(article_body)
+        return get_summary_and_claims_from_text(article_body, LLM_URL)
 
     if input_format == INPUT_FORMAT_ARTICLE:
 
-        return get_summary_and_claims_from_text(user_input)
+        return get_summary_and_claims_from_text(user_input, LLM_URL)
 
     # Default return for unsupported formats, should not reach here due to input validation
     return "No summary generated", []
@@ -480,10 +481,10 @@ def get_claims_and_ratings_from_input(user_input: str, input_format: str, source
 
         wiki_context, rag_context = get_context_from_lambdas(unrated_claims)
 
-        rated_claims_raw = rate_claims_via_llm(
-            unrated_claims, wiki_context, rag_context)
+        rated_claims = rate_claims_via_llm(
+            unrated_claims, wiki_context, rag_context, LLM_URL)
 
-        rated_claims = convert_llm_response_to_dict(rated_claims_raw)
+        # rated_claims = convert_llm_response_to_dict(rated_claims_raw)
 
         sup, mis, con, uns = calculate_metrics(rated_claims)
 
