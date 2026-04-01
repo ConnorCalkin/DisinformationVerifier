@@ -263,6 +263,7 @@ def send_claims_to_wiki_lambda(
 
     payload = {"claims": _extract_claim_strings(claims)}
     response = post_to_lambda(lambda_url, payload)
+
     return response["wiki_context"]
 
 

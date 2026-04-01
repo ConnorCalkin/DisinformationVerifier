@@ -456,7 +456,7 @@ def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], l
     wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
     logging.info(
         "Successfully retrieved context from Wikipedia: "
-        f"example snippet: {str(wiki_context[0])}..."
+        f"{wiki_context}..."
     )
 
     logging.info("Connecting to RAG")
