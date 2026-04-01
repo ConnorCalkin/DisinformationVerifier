@@ -8,70 +8,7 @@ from dotenv import load_dotenv
 import umap
 from pydantic import BaseModel
 
-from connection import get_db_connection, get_secrets, get_openai_client
-
-
-def get_test_claims_evidence() -> list[str]:
-    data = [
-        # Topic 1: Flat Earth
-        "The Earth is a flat disc protected by an ice wall.",
-        "Gravity is an illusion; the Earth is accelerating upwards.",
-        "Satellite photos of a curved Earth are all CGI manipulations.",
-        "The horizon always appears perfectly flat to the human eye.",
-
-        # Topic 2: Vaccines
-        "Vaccines are a primary cause of childhood autism.",
-        "The COVID-19 vaccine is used to implant trackable microchips.",
-        "Mandatory vaccinations are a tool for population control.",
-        "Natural immunity is always superior to any synthetic vaccine.",
-
-        # Topic 3: Moon Landing
-        "NASA staged the moon landing on a Hollywood film set.",
-        "The American flag waving on the moon proves there was wind.",
-        "Humans cannot survive passing through the Van Allen radiation belts.",
-        "No stars are visible in the background of lunar photographs.",
-
-        # Topic 4: Climate Change
-        "Global warming is a hoax invented for carbon tax revenue.",
-        "The Earth is actually entering a period of global cooling.",
-        "Climate change is a natural cycle and CO2 has no impact.",
-        "Arctic ice caps are actually expanding rather than melting.",
-
-        # Topic 5: 5G Technology
-        "5G cellular radiation weakens the immune system to spread viruses.",
-        "The rollout of 5G towers is linked to the COVID-19 outbreak.",
-        "High-frequency 5G signals are being used for mind control.",
-        "5G infrastructure is a weaponized surveillance system.",
-
-        "The Financial Conduct Authority will implement a redress scheme for car finance mis-selling affecting agreements dated 6 April 2007 to 1 November 2024.",
-        "12.1 million agreements are eligible for redress under the scheme.",
-        "Average redress per eligible agreement is £829.",
-        "Total cost to firms for redress is £7.5 billion, with £1.6 billion in non-redress costs, totaling £9.1 billion (down from £11 billion).",
-        "Uptake of the scheme is estimated at 75 percent.",
-        "Firms have three months from the end of the implementation period to inform complainants of eligibility and compensation amounts.",
-        "A taskforce will be created to crack down on claims management companies and law firms targeting drivers, in cooperation with regulators such as the SRA, ICO, and ASA.",
-        "The government is reviewing the ZEV mandate and may lower the EV sale quotas.",
-        "The ZEV mandate requires annual increases in the share of zero-emission car and van sales to reach 100% by 2035.",
-        "The 2026 ZEV target is 33%; the 2025 target was 28%; the 2024 target was 22%.",
-        "UK car production in 2025 was the lowest since 1952.",
-        "One in four new cars sold last year was zero emission (about 25%).",
-        "Carmakers face a £12,000 penalty for each car not sold to meet the quota.",
-        "The government removed some EV buyer incentives by ending the vehicle excise duty exemption for EVs and introducing a pay-per-mile road tax from 2028.",
-        "Hybrids can be sold until 2035; small manufacturers are exempt from the 2030 petrol/diesel phase-out.",
-        "The government plans to publish the ZEV mandate review by early 2027.",
-        "Labour aims to manufacture 1.3 million vehicles per year by 2035 (nearly double 2024/2025 levels).",
-        "The policy has been criticized by Conservatives as financially burdensome and ideologically driven by net-zero targets.",
-        "The European Union proposes an emergency brake mechanism to limit surges of youth mobility visa entrants rather than imposing an upfront numerical cap.",
-        "Kirsten Bailey is subject to a lifetime disqualification from keeping animals.",
-        "Bailey admitted breaching the disqualification order.",
-        "An SSPCA inspector found the house in disarray with used puppy pads containing urine and faeces.",
-        "The two dogs belonged to Bailey's partner.",
-        "Bailey claimed she was caring for the dogs and believed the order had been appealed successfully.",
-        "The dogs were seized for seven days and returned to Baileys' partner.",
-        "Sheriff McGeehan fined Bailey £320."
-    ]
-
-    return data
+from connection import get_db_connection, get_openai_client
 
 
 def get_claims_and_evidence() -> list[str]:
@@ -220,11 +157,17 @@ def convert_claims_evidence_to_df(claims_evidence: list[tuple[str, str]]) -> pd.
     return pd.DataFrame({'claim': claims, 'evidence': evidence})
 
 
+def get_claims_clustered_with_evidence() -> pd.DataFrame:
+    '''Fetches claims and evidence from the database, clusters the claims, and returns a DataFrame with cluster names and descriptions.'''
+    claims_evidence = get_claims_and_evidence()
+    claims_df = convert_claims_evidence_to_df(claims_evidence)
+    clustered_claims_df = cluster_claims(claims_df)
+    return clustered_claims_df
+
+
 if __name__ == "__main__":
     load_dotenv()
-    claims = get_claims_and_evidence()
-    claims_df = convert_claims_evidence_to_df(claims)
-    clustered_claims_df = cluster_claims(claims_df)
+    clustered_claims_df = get_claims_clustered_with_evidence()
     print(clustered_claims_df["cluster_name"].value_counts())
     for claim in clustered_claims_df.itertuples():
         print(f"Claim: {claim.claim}")
