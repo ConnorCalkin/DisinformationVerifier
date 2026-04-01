@@ -21,7 +21,9 @@ from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_s
                                  Claim)
 import db_logic as db
 import history_dashboard as history
+import source_rankings as sr
 import streamlit as st
+
 
 load_dotenv()
 
@@ -664,8 +666,8 @@ def main():
         return
 
     # --- 3. MAIN NAVIGATION TABS ---
-    tab_verify, tab_history, tab_about = st.tabs(
-        ["VERIFIER", "HISTORY", "ABOUT US"])
+    tab_verify, tab_history, tab_source_rankings, tab_about = st.tabs(
+        ["VERIFIER", "HISTORY", "SOURCE RANKINGS", "ABOUT US"])
 
     with tab_verify:
         if "results" not in st.session_state:
@@ -717,6 +719,9 @@ def main():
         st.session_state.page = "History"
         history.render_history_list_screen(st.container())
 
+    with tab_source_rankings:
+        st.session_state.page = "Source Rankings"
+        sr.main()
 
     with tab_about:
         st.session_state.page = "About"
