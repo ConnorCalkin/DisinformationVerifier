@@ -124,8 +124,7 @@ def display_summary_stats(df):
 
 
 def main():
-    st.set_page_config(page_title="News Rankings", layout="wide")
-    st.title("News Source Unreliability Rankings")
+    st.header("News Source Unreliability Rankings")
     st.info("Ranking is based on the percentage of claims marked as **Contradicted** or **Misleading**.")
 
     # Data Pipeline
