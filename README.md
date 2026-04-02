@@ -20,14 +20,14 @@ When a user interacts with the **Streamlit** interface, the following workflow i
         * If a URL is provided, an **AWS Lambda (Web Scraper)** extracts the article body first.
 * **Parallel Fact-Sourcing:**
     * **Contextual Research:** A Lambda function performs **Named Entity Recognition (NER)** on the claims and queries the **Wikipedia API** to retrieve relevant background articles.
-    * **Evidence Retrieval:** A second Lambda embeds the claims and queries a **ChromaDB** database (running on **ECS**) to find the most similar "truth chunks" from our trusted sources.
+    * **Evidence Retrieval:** A second Lambda embeds the claims and queries an **RDS** database to find the most similar "truth chunks" from our trusted sources.
 * **Final Verification:** The Streamlit app sends the claims, the Wiki context, and the trusted news chunks to an LLM. The LLM categorizes each claim as:
 
     * ✅ **Supported**
     * ⚠️ **Misleading**
     * ❌ **Contradicted**
     * ❓ **Unclear**
-* **Logging:** All results (UserID, Confidence, Accuracy, Claims and Source) are stored in **DynamoDB** for history and auditing.
+* **Logging:** All results (UserID, Confidence, Accuracy, Claims and Source) are stored in the **RDS** for history and auditing.
 
 ### 2. Ingestion Phase (The Source of Truth)
 To ensure the verifier has high-quality data, we maintain a background process for trusted data:
@@ -35,7 +35,7 @@ To ensure the verifier has high-quality data, we maintain a background process f
 * **Trigger:** **AWS EventBridge** schedules periodic runs of the **Ingestion Lambda**.
 * **Scraping:** The Lambda pulls content from reliable RSS feeds and verified news outlets.
 * **Processing:** Articles are "poor-man" chunked and embedded using AI models.
-* **Storage:** The chunks are stored in **ChromaDB** (backed by **Amazon EFS** for persistence) with the following metadata:
+* **Storage:** The chunks are stored in the **RDS** with the following metadata:
     * `article_chunk_text`
     * `article_url`
     * `article_published` (ISO 8601 string)
@@ -49,10 +49,9 @@ To ensure the verifier has high-quality data, we maintain a background process f
 | :--- | :--- |
 | **Frontend** | Streamlit (Python) |
 | **Compute** | AWS Lambda, AWS ECS (Fargate) |
-| **Database** | DynamoDB (User History), ChromaDB (Vector Store) |
-| **Storage** | Amazon EFS (Elastic File System) |
+| **Database** | RDS (User History, Vector Store) |
 | **Orchestration**| AWS EventBridge |
-| **AI/ML** | LLMs (for Extraction/Verification), AI Embeddings |
+| **AI/ML** | LLMs (for Extraction/Verification), AI Embeddings, clustering |
 
 ---
 
@@ -82,4 +81,4 @@ To ensure the verifier has high-quality data, we maintain a background process f
 ---
 
 ## 📝 Data Governance & Privacy
-User history is tracked in DynamoDB to provide insights into disinformation trends and system accuracy. We prioritize "Trusted Sources" to ensure the RAG context is not poisoned by unverified web data.
+User history is tracked in the RDS to provide insights into disinformation trends and system accuracy. We prioritize "Trusted Sources" to ensure the RAG context is not poisoned by unverified web data.
