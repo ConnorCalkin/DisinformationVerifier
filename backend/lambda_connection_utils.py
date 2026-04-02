@@ -2,9 +2,10 @@
 This script contains all functions related to interacting with the lambda functions.
 """
 
+import os
 import logging
 import requests
-import os
+
 
 from classes import Claim
 
@@ -91,6 +92,7 @@ def get_summary_and_claims_from_text(text_input: str, llm_url: str) -> tuple[str
 
     return summary, claims
 
+
 def post_to_lambda(lambda_url: str, payload: dict) -> dict | list:
     """Sends a POST request to a lambda URL
     and returns the response as a dict."""
@@ -135,7 +137,8 @@ def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], l
 
     return wiki_context, rag_context
 
-def get_unrated_claims_from_input(user_input: str, input_format: str, llm_url:str) -> tuple[str, list[Claim]]:
+
+def get_unrated_claims_from_input(user_input: str, input_format: str, llm_url: str) -> tuple[str, list[Claim]]:
     """Extract claims from the user input based on the input format."""
 
     if input_format == INPUT_FORMAT_CLAIM:
@@ -214,6 +217,7 @@ def validate_inputs_for_prompt(claims: list[Claim], wiki_context: list[dict], ra
         raise ValueError("Wikipedia context list is empty.")
     if rag_context == []:
         raise ValueError("RAG context list is empty.")
+
 
 def create_llm_prompt(
     claims: list[Claim],
