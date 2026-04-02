@@ -4,7 +4,7 @@
 import pytest
 from unittest.mock import patch
 
-from streamlit_functions import (send_url_to_web_scraping_lambda,
+from lambda_connection_utils import (send_url_to_web_scraping_lambda,
                                  send_claims_to_rag_lambda, send_claims_to_wiki_lambda,
                                  create_llm_prompt, validate_inputs_for_prompt,
                                  Claim)
@@ -47,10 +47,10 @@ def test_send_claims_to_rag_lambda_simple_response(mock_post):
     lambda_url = "https://my-lambda.aws"
 
     mock_return = [[
-            {"fact": "fact 1", "metadata_1": "..."},
-            {"fact": "fact 2", "metadata_1": "..."},
-            {"fact": "fact 3", "metadata_1": "..."}
-        ]
+        {"fact": "fact 1", "metadata_1": "..."},
+        {"fact": "fact 2", "metadata_1": "..."},
+        {"fact": "fact 3", "metadata_1": "..."}
+    ]
     ]
 
     mock_response = mock_post.return_value
@@ -64,7 +64,7 @@ def test_send_claims_to_rag_lambda_simple_response(mock_post):
     assert result == [[{"fact": "fact 1", "metadata_1": "..."},
                       {"fact": "fact 2", "metadata_1": "..."},
                       {"fact": "fact 3", "metadata_1": "..."}]
-    ]
+                      ]
 
 
 @patch('requests.post')
@@ -93,7 +93,7 @@ def test_send_claims_to_wiki_lambda_simple_response(mock_post):
 
     # 1. This matches the specific structure send_claims_to_wiki_lambda expects
     mock_return = {
-            "wiki_context": ["evidence 1", "evidence 2", "evidence 3"]   
+        "wiki_context": ["evidence 1", "evidence 2", "evidence 3"]
     }
 
     # 2. Configure the mock response object
@@ -160,6 +160,7 @@ def test_create_llm_prompt():
 
     assert context in prompt
 
+
 def test_validate_inputs_for_prompt():
     """Tests that the validate_inputs_for_prompt function raises a ValueError when given invalid inputs."""
 
@@ -174,4 +175,3 @@ def test_validate_inputs_for_prompt():
     with pytest.raises(ValueError):
         validate_inputs_for_prompt([Claim(claim_text="claim 1")], [
                                    "evidence 1"], "not a list")
-

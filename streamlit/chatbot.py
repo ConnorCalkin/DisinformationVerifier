@@ -11,14 +11,11 @@ import os
 import plotly.graph_objects as go
 from dotenv import load_dotenv
 import logging
+import requests
 from loading_animation import jumping_loader
 from about_us import render_about_us
-from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_scraping_lambda,
-                                 get_summary_and_claims_from_text,
-                                 send_claims_to_rag_lambda,
-                                 send_claims_to_wiki_lambda, rate_claims_via_llm,
-                                 setup_logging,
-                                 Claim)
+# from streamlit_functions import (
+#                                  setup_logging)
 
 import db_logic as db
 import history_dashboard as history
@@ -29,10 +26,11 @@ import streamlit as st
 load_dotenv()
 
 
-WIKI_URL = os.getenv("WIKI_URL")
-RAG_URL = os.getenv("RAG_URL")
-SCRAPE_URL = os.getenv("SCRAPE_URL")
-LLM_URL = os.getenv("LLM_URL")
+# WIKI_URL = os.getenv("WIKI_URL")
+# RAG_URL = os.getenv("RAG_URL")
+# SCRAPE_URL = os.getenv("SCRAPE_URL")
+# LLM_URL = os.getenv("LLM_URL")
+BACKEND_URL = os.getenv("BACKEND_URL")
 
 INPUT_FORMAT_URL = 'URL'
 INPUT_FORMAT_CLAIM = 'Claim'
@@ -46,7 +44,35 @@ CATEGORY_COLORS = {
     'UNSURE': "#b8e2f4"
 }
 
-setup_logging()
+
+def post_to_lambda(lambda_url: str, payload: dict) -> dict | list:
+    """Sends a POST request to a lambda URL
+    and returns the response as a dict."""
+
+    logging.info(
+        f"Sending POST request to lambda with payload: {payload}")
+
+    if "claims" in payload:
+        payload["queries"] = payload["claims"]  # Renaming for RAG lambda
+
+    logging.info(f"Final payload sent to lambda: {payload}")
+
+    response = requests.post(
+        lambda_url,
+        json=payload
+    )
+
+    if response.status_code != 200:
+        logging.error(
+            f"Lambda request failed with status code {response.status_code}: {response.text}")
+        raise RuntimeError(f"{response.text}")
+
+    logging.info(f"Received response from lambda: ")
+
+    return response.json()["rated_claims"], response.json()["summary"]
+
+# setup_logging()
+
 
 st.set_page_config(page_title="Syft", page_icon='logo_icon.png', layout="wide")
 
@@ -229,45 +255,6 @@ def render_claims(claims: list[dict]) -> None:
             display_claim_and_rating(claim, box_design)
 
 
-def get_unrated_claims_from_input(user_input: str, input_format: str) -> tuple[str, list[Claim]]:
-    """Extract claims from the user input based on the input format."""
-
-    if input_format == INPUT_FORMAT_CLAIM:
-        summary = f"Verification of the following claim: {user_input.title()}"
-        unrated_claims = [Claim(claim_text=user_input)]
-        return summary, unrated_claims
-
-    if input_format == INPUT_FORMAT_URL:
-        article_body = send_url_to_web_scraping_lambda(
-            user_input, SCRAPE_URL)
-        return get_summary_and_claims_from_text(article_body, LLM_URL)
-
-    if input_format == INPUT_FORMAT_ARTICLE:
-
-        return get_summary_and_claims_from_text(user_input, LLM_URL)
-
-    # Default return for unsupported formats, should not reach here due to input validation
-    return "No summary generated", []
-
-
-def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], list[dict]]:
-    """Send claims to RAG and Wikipedia lambdas and return the context retrieved from both."""
-
-    logging.info("Connecting to Wikipedia")
-    wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
-    logging.info(
-        "Successfully retrieved context from Wikipedia: "
-        f"{wiki_context}..."
-    )
-
-    logging.info("Connecting to RAG")
-    rag_context = send_claims_to_rag_lambda(unrated_claims, RAG_URL)
-    logging.info("Successfully retrieved context from RAG: example snippet: " +
-                 str(rag_context[0][0]) + "...")
-
-    return wiki_context, rag_context
-
-
 def get_claims_and_ratings_from_input(user_input: str, input_format: str, source_type: str) -> tuple[str, list[dict]] | None:
     """
     Main process function for RAG interface.
@@ -279,15 +266,20 @@ def get_claims_and_ratings_from_input(user_input: str, input_format: str, source
 
     if user_input.strip() != "":
 
-        summary, unrated_claims = get_unrated_claims_from_input(
-            user_input, input_format)
+        payload = {"input": user_input,
+                   "input_type": input_format, "source_type": source_type}
 
-        wiki_context, rag_context = get_context_from_lambdas(unrated_claims)
+        rated_claims, summary = post_to_lambda(BACKEND_URL, payload)
 
-        rated_claims = rate_claims_via_llm(
-            unrated_claims, wiki_context, rag_context, LLM_URL)
+        # summary, unrated_claims = get_unrated_claims_from_input(
+        #     user_input, input_format)
 
-        # rated_claims = convert_llm_response_to_dict(rated_claims_raw)
+        # wiki_context, rag_context = get_context_from_lambdas(unrated_claims)
+
+        # rated_claims = rate_claims_via_llm(
+        #     unrated_claims, wiki_context, rag_context, LLM_URL)
+
+        # # rated_claims = convert_llm_response_to_dict(rated_claims_raw)
 
         sup, mis, con, uns = calculate_metrics(rated_claims)
 
