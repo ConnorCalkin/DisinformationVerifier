@@ -476,7 +476,23 @@ def main():
             # --- THE LARGE CENTER LOGO (Input Screen Only) ---
             _, center_logo, _ = st.columns([1, 1.2, 1])
             with center_logo:
-                st.image("logo_with_slogan.png", use_container_width=True)
+                st.image("logo.png", use_container_width=True)
+
+            st.markdown(
+                """
+                <div style="display: flex; justify-content: center; width: 100%; margin-top: -65px;">
+                    <div style="width: 420px; display: flex; justify-content: flex-end;">
+                        <p style="color: #666; font-size: 1.4rem; margin-right: -30px;">
+                            Beyond The Headlines
+                        </p>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown("<div style='margin-bottom: 60px; margin-top: -25px;'></div>",
+                        unsafe_allow_html=True)
 
             # --- INPUT FORM ---
             user_input, input_format, source_type = render_and_parse_input_boxes()
