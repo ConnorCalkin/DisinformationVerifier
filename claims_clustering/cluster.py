@@ -4,10 +4,10 @@ import time
 
 import pandas as pd
 from sklearn.metrics import silhouette_score
+from sklearn.cluster import KMeans
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import umap
-from sklearn.cluster import KMeans
 
 from connection import get_db_connection, get_openai_client
 from embedding import embed_claims_async
@@ -33,18 +33,22 @@ def get_claims_and_evidence() -> list[str]:
     return rows
 
 
-def get_cluster_name_and_desc_prompt(cluster_claims: list[str]) -> str:
+def get_cluster_name_and_desc_prompt(claims_clusters: list[str]) -> str:
     '''
     Creates a prompt for the LLM to generate a concise name for a given cluster.
     '''
 
     prompt = f"""
-        You are an expert data analyst. Below is a list of text claims grouped into a single cluster based on their semantic similarity.
+        You are an expert data analyst. Below is a list of text claims 
+        grouped into a single cluster based on their semantic similarity.
 
         ### Task:
-        1. **Cluster Name**: Create a concise, high-level name (3-6 words) that captures the core theme.
-        2. **Topic 1**: Identify the most common misconception or theme in the claims and describe it in 1-2 sentences.
-        3. **Topic 2**: If there is a second common misconception or theme, describe it in 1-2 sentences. If not, leave this blank.
+        1. **Cluster Name**: Create a concise, high-level name 
+            (3-6 words) that captures the core theme.
+        2. **Topic 1**: Identify the most common misconception 
+            or theme in the claims and describe it in 1-2 sentences.
+        3. **Topic 2**: If there is a second common misconception 
+            or theme, describe it in 1-2 sentences. If not, leave this blank.
 
         example output format:
         Cluster Name: Flat Earth Conspiracies
@@ -54,7 +58,7 @@ def get_cluster_name_and_desc_prompt(cluster_claims: list[str]) -> str:
 
         ### Claims:
     """
-    for claim in cluster_claims:
+    for claim in claims_clusters:
         prompt += f"- {claim}\n"
     prompt += "\nCluster Name:"
     return prompt
@@ -66,13 +70,13 @@ class Cluster(BaseModel):
     claims_topic_2: str = None
 
 
-async def get_cluster_name_and_desc_from_llm(client, cluster_claims: list[str]) -> Cluster:
+async def get_cluster_name_and_desc_from_llm(client, claims_clusters: list[str]) -> Cluster:
     '''
     For a given cluster number,
     creates a prompt with the claims in that cluster and
     sends it to the LLM to get a concise cluster name and description.
     '''
-    prompt = get_cluster_name_and_desc_prompt(cluster_claims)
+    prompt = get_cluster_name_and_desc_prompt(claims_clusters)
     response = await client.responses.parse(
         model="gpt-4o-2024-08-06",
         input=[
@@ -88,10 +92,13 @@ async def get_cluster_name_and_desc_from_llm(client, cluster_claims: list[str]) 
     return cluster_data
 
 
-async def assign_cluster_name(client, cluster_claims: list[str]) -> pd.DataFrame:
-    '''takes in a unique cluster number, gets a name and description from the LLM, and maps it back to the DataFrame.'''
+async def assign_cluster_name(client, claims_clusters: list[str]) -> pd.DataFrame:
+    '''
+    takes in a unique cluster number, 
+    gets a name and description from the LLM, and maps it back to the DataFrame.
+    '''
 
-    cluster_name_and_desc = await get_cluster_name_and_desc_from_llm(client, cluster_claims)
+    cluster_name_and_desc = await get_cluster_name_and_desc_from_llm(client, claims_clusters)
     cluster_name = cluster_name_and_desc.cluster_name
     cluster_description = "\n\nCommon misconceptions in this topic include:\n"
     if cluster_name_and_desc.claims_topic_1:
@@ -192,7 +199,10 @@ def convert_claims_evidence_to_df(claims_evidence: list[tuple[str, str]]) -> pd.
 
 
 async def get_claims_clustered_with_evidence() -> list[dict]:
-    '''Fetches claims and evidence from the database, clusters the claims, and returns a list of dictionaries with cluster names and descriptions.'''
+    '''
+    Fetches claims and evidence from the database, clusters the claims, and 
+    returns a list of dictionaries with cluster names and descriptions.
+    '''
     logger.info("Fetching claims and evidence from the database...")
     claims_evidence = get_claims_and_evidence()
     logger.info(

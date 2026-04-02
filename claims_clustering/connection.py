@@ -1,4 +1,3 @@
-import boto3
 import os
 import logging
 import json
@@ -8,6 +7,7 @@ import psycopg2
 from psycopg2.extensions import connection
 from psycopg2.errors import OperationalError
 from openai import AsyncOpenAI
+import boto3
 
 
 logger = logging.getLogger(__name__)
