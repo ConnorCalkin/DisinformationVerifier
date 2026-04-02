@@ -14,9 +14,6 @@ import logging
 import requests
 from loading_animation import jumping_loader
 from about_us import render_about_us
-# from streamlit_functions import (
-#                                  setup_logging)
-
 import db_logic as db
 import history_dashboard as history
 import source_rankings as sr
@@ -25,11 +22,6 @@ import streamlit as st
 
 load_dotenv()
 
-
-# WIKI_URL = os.getenv("WIKI_URL")
-# RAG_URL = os.getenv("RAG_URL")
-# SCRAPE_URL = os.getenv("SCRAPE_URL")
-# LLM_URL = os.getenv("LLM_URL")
 BACKEND_URL = os.getenv("BACKEND_URL")
 
 INPUT_FORMAT_URL = 'URL'
@@ -71,7 +63,6 @@ def post_to_lambda(lambda_url: str, payload: dict) -> dict | list:
 
     return response.json()["rated_claims"], response.json()["summary"]
 
-# setup_logging()
 
 
 st.set_page_config(page_title="Syft", page_icon='logo_icon.png', layout="wide")
