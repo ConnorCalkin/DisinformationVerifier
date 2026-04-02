@@ -62,7 +62,7 @@ def fetch_input_history_list() -> list:
             FROM 
                 input
             ORDER BY 
-                created_at DESC
+                input_id DESC;
             """
     return run_query(query)
 
