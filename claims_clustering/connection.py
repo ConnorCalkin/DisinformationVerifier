@@ -7,10 +7,13 @@ from os import environ
 import psycopg2
 from psycopg2.extensions import connection
 from psycopg2.errors import OperationalError
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 
 logger = logging.getLogger(__name__)
+
+_CACHED_SECRET = None
+_OPENAI_CLIENT = None
 
 
 def get_db_connection() -> connection:
@@ -31,11 +34,16 @@ def get_db_connection() -> connection:
         raise e
 
 
-sm_client = boto3.client(
-    'secretsmanager', region_name=environ.get("AWS_REGION", "eu-west-2"))
-
-_CACHED_SECRET = None
-_OPENAI_CLIENT = None
+def get_boto3_client(service_name: str):
+    """ Helper function to create a boto3 client for a given AWS service. """
+    try:
+        client = boto3.client(
+            service_name, region_name=environ.get("AWS_REGION", "eu-west-2"))
+        logging.info(f"{service_name} client initialized successfully.")
+        return client
+    except Exception as e:
+        logging.error(f"Error initializing {service_name} client: {e}")
+        raise RuntimeError(f"Failed to initialize {service_name} client.")
 
 
 def get_secrets() -> dict:
@@ -49,6 +57,7 @@ def get_secrets() -> dict:
         raise EnvironmentError("SECRET_ID environment variable not set.")
 
     try:
+        sm_client = get_boto3_client("secretsmanager")
         response = sm_client.get_secret_value(SecretId=secret_name)
         _CACHED_SECRET = json.loads(response['SecretString'])
         logging.info("Secrets successfully retrieved and cached.")
@@ -59,7 +68,7 @@ def get_secrets() -> dict:
             "Failed to retrieve secrets from AWS Secrets Manager.")
 
 
-def get_openai_client() -> OpenAI:
+def get_openai_client() -> AsyncOpenAI:
     """ Abstracted function to intialise and cache the OpenAI client. """
     global _OPENAI_CLIENT
     if _OPENAI_CLIENT:
@@ -71,7 +80,7 @@ def get_openai_client() -> OpenAI:
         if not api_key:
             logging.error("OPENAI_API_KEY not found in secrets.")
             raise KeyError("OPENAI_API_KEY not found in secrets.")
-        _OPENAI_CLIENT = OpenAI(api_key=api_key)
+        _OPENAI_CLIENT = AsyncOpenAI(api_key=api_key)
 
         logging.info("OpenAI client initialized and cached.")
         return _OPENAI_CLIENT

@@ -114,10 +114,15 @@ def resolve_wiki_titles(query_terms: list[str]) -> list[str]:
     valid_titles = []
     for term in query_terms:
         search_hits = wikipedia.search(term, results=1)
+        if search_hits == None:
+            continue
         if search_hits:
             valid_titles.append(search_hits[0])  # Take the top search result
         else:
             logging.warning(f"No Wikipedia article found for term: {term}")
+
+    if not valid_titles:
+        logging.warning("No valid Wikipedia titles resolved from LLM terms.")
 
     return list(set(valid_titles))  # Ensure uniqueness
 
@@ -207,13 +212,22 @@ def lambda_handler(event: dict, context: dict) -> dict:
             logging.warning(
                 "LLM did not return any search terms. Skipping Wikipedia retrieval.")
             return {
-                "statusCode": 200,
+                "statusCode": 500,
                 # Return empty context if no search terms found
                 "body": json.dumps({"wiki_context": [],
                                     "message": "No relevant search terms found."})
             }
         # Step 3: Resolve those titles to actual Wikipedia articles
         valid_titles = resolve_wiki_titles(search_queries)
+        if not valid_titles:
+            logging.warning(
+                "No valid Wikipedia articles resolved from search terms.")
+            return {
+                "statusCode": 500,
+                # Return empty context if no valid articles found
+                "body": json.dumps({"wiki_context": [],
+                                    "message": "No valid Wikipedia articles found."})
+            }
         # Step 4: Fetch the content of each valid Wikipedia article
         wiki_evidence = asyncio.run(fetch_article_bodies(valid_titles, claims))
 

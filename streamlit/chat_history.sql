@@ -41,5 +41,12 @@ CREATE TABLE IF NOT EXISTS claim (
     FOREIGN KEY (input_id) REFERENCES input(input_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS cluster (
+    cluster_id SERIAL PRIMARY KEY,
+    cluster_name VARCHAR(255) NOT NULL,
+    cluster_description TEXT,
+    claim_count INTEGER DEFAULT 0
+);
+
 -- PERFORMANCE INDEX to speed up streamlit chat history retrieval
 CREATE INDEX IF NOT EXISTS idx_input_created_at ON input(created_at DESC);

@@ -23,7 +23,6 @@ import db_logic as db
 import history_dashboard as history
 import streamlit as st
 
-from cluster import get_claims_clustered_with_evidence
 
 load_dotenv()
 
@@ -660,14 +659,11 @@ def render_claim_clusters(claims_and_evidence: list[dict]) -> None:
     if not claims_and_evidence:
         return
 
-    claims_and_evidence = sorted(
-        claims_and_evidence, key=lambda x: len(x['claims']), reverse=True)[:3]
-
     cols = st.columns(len(claims_and_evidence))
     for cluster, col in zip(claims_and_evidence, cols):
         with col:
             with st.expander(cluster['cluster_name']):
-                st.write(f"Description: {cluster['description']}")
+                st.write(f"Description: {cluster['cluster_description']}")
 
 
 def main():
@@ -712,13 +708,6 @@ def main():
             st.markdown("<div style='margin-bottom: 60px; margin-top: -25px;'></div>",
                         unsafe_allow_html=True)
 
-            # --- CLAIMS ---
-
-            # Placeholder for claim clusters, replace with actual clustering logic
-            # Call the cluster function to get claim clusters
-            clusters = get_claims_clustered_with_evidence()
-            render_claim_clusters(clusters)
-
             # --- INPUT FORM ---
             user_input, input_format, source_type = render_and_parse_input_boxes()
             verification_result = verify_button(
@@ -728,6 +717,12 @@ def main():
                 st.session_state.results = verification_result
                 st.session_state.page = "Results"  # Switch state to trigger small logo
                 st.rerun()
+
+            # CLUSTERS
+
+            clusters = db.get_clusters()[:4]
+            if clusters:
+                render_claim_clusters(clusters)
         else:
             # --- RESULTS SCREEN ---
             summary, claims, metrics = st.session_state.results
