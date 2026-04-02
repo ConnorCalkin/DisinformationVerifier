@@ -15,36 +15,69 @@ def load_and_process_data():
 
 
 def create_unreliability_chart(df):
-    """Generates the Plotly horizontal bar chart."""
-    chart_df = df.sort_values(by="unreliability_pct", ascending=True)
+    """Generates a polished chart with value-based conditional coloring."""
+
+    # 1. Define your thresholds and colors
+    def get_color(val):
+        if val < 30:
+            return "#2ecc71"  # Soft Green
+        elif val < 50:
+            return "#f1c40f"  # Soft Yellow/Gold
+        else:
+            return "#e74c3c"  # Soft Red
+
+    # Apply color logic to the dataframe
+    chart_df = df.sort_values(by="unreliability_pct", ascending=True).copy()
+    chart_df["bar_color"] = chart_df["unreliability_pct"].apply(get_color)
 
     fig = px.bar(
         chart_df,
         x="unreliability_pct",
         y="source_type_name",
         orientation='h',
-        title="Relative Unreliability by Source",
+        title="<b>Relative Unreliability by Source</b>",
         labels={
-            "unreliability_pct": "Unreliability (%)", "source_type_name": "News Source"},
+            "unreliability_pct": "Unreliability (%)",
+            "source_type_name": "Source Type"
+        },
         hover_data={
             "total_inputs": True,
             "total_contradicted": True,
             "total_misleading": True,
-            "unreliability_pct": ":.2f"
+            "unreliability_pct": ":.1f"
         },
-        color="unreliability_pct",
-        color_continuous_scale="Reds"
+        # USE THE NEW COLOR COLUMN
+        color="bar_color",
+        color_discrete_map="identity"  # This tells Plotly to use the hex codes directly
+    )
+
+    fig.update_traces(
+        width=0.6,
+        marker=dict(
+            line=dict(width=0),
+            cornerradius=10  # Note: Ensure Plotly version >= 5.20.0
+        )
     )
 
     fig.update_layout(
-        yaxis={'categoryorder': 'total ascending'},
-        xaxis_range=[0, 100],
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(family="Inter, sans-serif", size=13, color="#444"),
+        # Darker gray for professionalism
+        title_font=dict(size=20, color="#2c3e50"),
+        xaxis=dict(
+            range=[0, 105],
+            showgrid=True,
+            gridcolor='rgba(200, 200, 200, 0.2)',
+            zeroline=False,
+            ticksuffix="%"
+        ),
+        yaxis=dict(showgrid=False, zeroline=False),
         height=500,
-        margin=dict(l=20, r=20, t=40, b=20),
-        coloraxis_showscale=False,
-        showlegend=False
+        margin=dict(l=20, r=40, t=80, b=40),
+        showlegend=False  # Hide legend since colors are self-explanatory
     )
-    fig.update_traces(width=0.3)
+
     return fig
 
 # --- 3. UI Components ---
@@ -60,7 +93,7 @@ def display_source_details(df):
                 with col1:
                     st.write(
                         f"**Overall Insight:** This source has had **{row['total_inputs']}** claims analyzed.")
-                    if row['unreliability_pct'] >= 60:
+                    if row['unreliability_pct'] >= 50:
                         st.error(
                             "⚠️ **High Risk:** The vast majority of shared content is factually incorrect.")
                     elif row['unreliability_pct'] >= 30:
@@ -87,8 +120,7 @@ def display_summary_stats(df):
 
 
 def main():
-    st.set_page_config(page_title="News Rankings", layout="wide")
-    st.title("News Source Unreliability Rankings")
+    st.header("News Source Unreliability Rankings")
     st.info("Ranking is based on the percentage of claims marked as **Contradicted** or **Misleading**.")
 
     # Data Pipeline

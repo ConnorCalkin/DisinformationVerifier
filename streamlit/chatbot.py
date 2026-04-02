@@ -19,8 +19,10 @@ from streamlit_functions import (convert_llm_response_to_dict, send_url_to_web_s
                                  send_claims_to_wiki_lambda, rate_claims_via_llm,
                                  setup_logging,
                                  Claim)
+
 import db_logic as db
 import history_dashboard as history
+import source_rankings as sr
 import streamlit as st
 
 
@@ -46,7 +48,7 @@ CATEGORY_COLORS = {
 
 setup_logging()
 
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="Syft", page_icon='logo_icon.png', layout="wide")
 
 if "page" not in st.session_state:
     st.session_state.page = "Input"
@@ -56,209 +58,9 @@ if "selected_input_id" not in st.session_state:
 
 
 def apply_syft_pro_theme():
-    st.markdown("""
-        <style>
-        /* Lightened Background (Bone White) */
-        .stApp {
-            background-color: #F6F3F8 !important;
-        }
+    st.markdown('<style>' + open('style.css').read() +
+                '</style>', unsafe_allow_html=True)
 
-        /* 2. STYLE THE TABS TO BE SLEEK */
-        /* Center the tab bar */
-        .stTabs [data-baseweb="tab-list"] {
-            justify-content: center;
-            gap: 60px;
-            background-color: transparent !important;
-        }
-                
-        /* 1. The Tab text itself (Inactive state) */
-        .stTabs [data-baseweb="tab"] {
-            height: 50px;
-            background-color: transparent !important;
-            border: none !important;
-            font-family: sans-serif;
-            font-weight: 600 !important;
-            color: #888 !important; /* Set inactive tabs to grey for contrast */
-            font-size: 1rem !important;
-            letter-spacing: 0.05em;
-            transition: color 0.3s ease;
-        }
-
-        /* 2. The Active Tab (Text color & Underline) */
-        /* This targets the tab when it is clicked/active */
-        .stTabs [data-baseweb="tab"][aria-selected="true"] {
-            color: #531F78 !important; /* Your Purple */
-            border-bottom: 3px solid #531F78 !important; /* Matching Purple Underline */
-        }
-
-        /* 3. The Sliding Highlight (Streamlit's internal bar) */
-        /* Change the sliding bar to match your purple so it doesn't flash blue */
-        div[data-baseweb="tab-highlight"] {
-            background-color: #531F78 !important;
-        }
-
-        /* The Analyze/Verify Button */
-        div.stButton > button {
-            background-color: #531F78 !important;
-            color: white !important;
-            border-radius: 8px !important;
-            border: none !important;
-            padding: 0.6rem 2rem !important;
-            transition: 0.3s;
-        }
-        
-        div.stButton > button:hover {
-            background-color: #331A44 !important;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        /* Clean up the Sidebar (Hide it since we have top nav) */
-        [data-testid="stSidebar"] {
-            display: none;
-        }
-                
-        /* 1. The main background of the alert box */
-        div[data-testid="stAlert"] {
-            background-color: #F1E6F9 !important; /* Soft Purple Background */
-            border: 1px solid #531F78 !important;  /* Purple Border */
-            border-radius: 8px !important;
-        }
-
-        /* 2. Target the text inside the box (The most important part) */
-        div[data-testid="stAlert"] div[data-testid="stMarkdownContainer"] p {
-            color: #531F78 !important; /* Dark Purple Text */
-            font-weight: 500 !important;
-        }
-
-        /* 3. Target the Icon (The 'i' or '!' symbol) */
-        div[data-testid="stAlert"] svg {
-            fill: #531F78 !important;
-            color: #531F78 !important;
-        }
-
-        /* 4. Fix for the 'X' close button if it exists */
-        div[data-testid="stAlert"] button {
-            color: #531F78 !important;
-        }
-                
-        /* 1. TEXT AREA & SELECTBOX BASE STYLE */
-        .stTextArea textarea, 
-        div[data-baseweb="select"] > div {
-            background-color: #FFFFFF !important; /* Soft Purple Background */
-            border: 1px solid #d1d1d1 !important;  /* Subtle grey border */
-            border-radius: 10px !important;
-            color: #000000 !important;             /* FORCE TYPED TEXT TO BLACK */
-            -webkit-text-fill-color: #000000 !important;
-        }
-
-        /* 2. PLACEHOLDER STYLE (The 'Grey' text before typing) */
-        .stTextArea textarea::placeholder {
-            color: #888888 !important;             /* Professional Grey */
-            -webkit-text-fill-color: #888888 !important;
-            opacity: 1; 
-        }
-
-        /* 1. COMPLETELY KILL THE RED/ORANGE FOCUS RING */
-        /* We target every possible layer of the Streamlit Input/Selectbox */
-        [data-baseweb="base-input"]:focus-within, 
-        [data-baseweb="input"]:focus-within,
-        .stTextArea div:focus-within,
-        .stSelectbox div:focus-within {
-            border-color: #531F78 !important; /* SYFT Purple Border */
-            box-shadow: 0 0 0 2px rgba(83, 31, 120, 0.2) !important; /* Soft Purple Glow */
-            background-color: #ffffff !important;
-        }
-        /* 4. DROPDOWN (SELECTBOX) FOCUS FIX */
-        /* This kills the red ring on the dropdowns specifically */
-        div[data-baseweb="select"]:focus-within {
-            border-color: #531F78 !important;
-            box-shadow: 0 0 0 2px rgba(83, 31, 120, 0.2) !important;
-            outline: none !important;
-        }
-
-        /* Ensure dropdown text is black once selected */
-        div[data-baseweb="select"] span {
-            color: #000000 !important;
-        }
-
-        /* 5. SYFT PURPLE FOR LABELS */
-        .stTextArea label p, 
-        .stSelectbox label p {
-            color: #531F78 !important;
-            font-weight: 600 !important;
-            text-transform: none; /* Keeps labels from being all caps if preferred */
-        }
-                
-        /* 2. ALIGN THE BOXES (EXTEND INPUT LENGTH) */
-        /* Adjust the '165px' value below to get the perfect alignment with your Tip Box */
-        .stTextArea textarea {
-            min-height: 140px !important; 
-            max-height: 140px !important;
-            background-color: #ffffff !important;
-            border-radius: 10px !important;
-        }
-                
-        /* Reduce the gap at the very top of the page for the small logo */
-        [data-testid="stHeader"] {
-            height: 30px !important;
-        }
-
-        /* Tighten the spacing around the small image */
-        [data-testid="stImage"] {
-            padding-top: 0px !important;
-            margin-bottom: -10px !important;
-        }
-                
-        /* FORCE ALERT/INFO BARS TO WHITE */
-        /* Target the main container and the inner colored div */
-        div[data-testid="stAlert"], 
-        div[data-testid="stNotificationContentInfo"],
-        div[data-testid="stNotificationContentSuccess"] {
-            background-color: #ffffff !important; 
-            border: 1px solid #d1d1d1 !important;
-            color: #531F78 !important;
-            border-radius: 10px !important;
-        }
-
-        /* Ensure the text inside is dark purple on the white background */
-        div[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p {
-            color: #531F78 !important;
-            font-weight: 500 !important;
-        }
-
-        /* Make the icon purple */
-        div[data-testid="stAlert"] svg {
-            fill: #531F78 !important;
-        }
-        /* 1. RESET ALL ALERTS TO DEFAULT */
-        /* This removes the global purple/white overrides so SUCCESS, ERROR, and WARNING revert */
-        div[data-testid="stAlert"] {
-            background-color: transparent !important;
-            border: none !important;
-        }
-
-        /* 2. TARGET THE 'NOTE' BOX SPECIFICALLY */
-        /* This looks for an info box that contains the text 'Note:' */
-        div[data-testid="stNotificationContentInfo"]:has(p:contains("Note:")),
-        div[data-testid="stAlert"]:has(p:contains("Note:")) {
-            background-color: #F1E6F9 !important; /* Your Soft Purple */
-            border: 1px solid #531F78 !important;  /* Your Dark Purple Border */
-            border-radius: 8px !important;
-        }
-
-        /* 3. STYLE THE TEXT INSIDE THE PURPLE NOTE ONLY */
-        div[data-testid="stAlert"]:has(p:contains("Note:")) [data-testid="stMarkdownContainer"] p {
-            color: #531F78 !important;
-            font-weight: 500 !important;
-        }
-
-        /* 4. STYLE THE ICON INSIDE THE PURPLE NOTE ONLY */
-        div[data-testid="stAlert"]:has(p:contains("Note:")) svg {
-            fill: #531F78 !important;
-            color: #531F78 !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
 
 
 def display_claim_and_rating(claim: dict, box_design) -> None:
@@ -455,7 +257,7 @@ def get_context_from_lambdas(unrated_claims: list[Claim]) -> tuple[list[dict], l
     wiki_context = send_claims_to_wiki_lambda(unrated_claims, WIKI_URL)
     logging.info(
         "Successfully retrieved context from Wikipedia: "
-        f"example snippet: {str(wiki_context[0])}..."
+        f"{wiki_context}..."
     )
 
     logging.info("Connecting to RAG")
@@ -641,13 +443,13 @@ def render_results_screen(
             "No claims were extracted from the input. Please try again with a different article, URL or claim.")
         return
 
-    with st.container(border=True):
+    with st.container(border=False):
         st.subheader("Input Summary")
         st.info(summary)
 
         render_trust_metrics(*metrics)
 
-    with st.container(border=True, height=300):
+    with st.container(border=False, height=300):
         render_claims(claims_and_ratings)
 
 
@@ -680,8 +482,8 @@ def main():
         return
 
     # --- 3. MAIN NAVIGATION TABS ---
-    tab_verify, tab_history, tab_about = st.tabs(
-        ["VERIFIER", "HISTORY", "ABOUT US"])
+    tab_verify, tab_history, tab_source_rankings, tab_about = st.tabs(
+        ["VERIFIER", "HISTORY", "SOURCE RANKINGS", "ABOUT US"])
 
     with tab_verify:
         if "results" not in st.session_state:
@@ -737,6 +539,10 @@ def main():
     with tab_history:
         st.session_state.page = "History"
         history.render_history_list_screen(st.container())
+
+    with tab_source_rankings:
+        st.session_state.page = "Source Rankings"
+        sr.main()
 
     with tab_about:
         st.session_state.page = "About"
