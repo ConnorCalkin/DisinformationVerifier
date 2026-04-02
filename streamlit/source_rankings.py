@@ -15,16 +15,27 @@ def load_and_process_data():
 
 
 def create_unreliability_chart(df):
-    """Generates a polished, professional Plotly horizontal bar chart."""
-    # Sort for a clean descending visual flow
-    chart_df = df.sort_values(by="unreliability_pct", ascending=True)
+    """Generates a polished chart with value-based conditional coloring."""
+
+    # 1. Define your thresholds and colors
+    def get_color(val):
+        if val < 30:
+            return "#2ecc71"  # Soft Green
+        elif val < 50:
+            return "#f1c40f"  # Soft Yellow/Gold
+        else:
+            return "#e74c3c"  # Soft Red
+
+    # Apply color logic to the dataframe
+    chart_df = df.sort_values(by="unreliability_pct", ascending=True).copy()
+    chart_df["bar_color"] = chart_df["unreliability_pct"].apply(get_color)
 
     fig = px.bar(
         chart_df,
         x="unreliability_pct",
         y="source_type_name",
         orientation='h',
-        title="<b>Relative Unreliability by Source</b>",  # Bold title for hierarchy
+        title="<b>Relative Unreliability by Source</b>",
         labels={
             "unreliability_pct": "Unreliability (%)",
             "source_type_name": "Source Type"
@@ -35,51 +46,36 @@ def create_unreliability_chart(df):
             "total_misleading": True,
             "unreliability_pct": ":.1f"
         },
-        color="unreliability_pct",
-        # Use a more sophisticated color scale (Sunset or Plasma looks more modern than just Reds)
-        color_continuous_scale=["#FFC1C1", "#531F78"]
+        # USE THE NEW COLOR COLUMN
+        color="bar_color",
+        color_discrete_map="identity"  # This tells Plotly to use the hex codes directly
     )
 
     fig.update_traces(
-        width=0.5,  # Slightly thicker bars for a "heftier" feel
-        marker_line_color='rgba(0,0,0,0)',  # No harsh borders
-        marker_pattern_shape="",  # Ensure clean fill
-        # This creates the "Rounded" look in modern Plotly
+        width=0.6,
         marker=dict(
             line=dict(width=0),
-            # ROUNDED CORNERS (Only available in recent Plotly versions)
-            cornerradius=10
+            cornerradius=10  # Note: Ensure Plotly version >= 5.20.0
         )
     )
 
     fig.update_layout(
-        # 1. CLEAN BACKGROUND
         plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='rgba(0,0,0,0)',
-
-        # 2. TYPOGRAPHY
         font=dict(family="Inter, sans-serif", size=13, color="#444"),
-        title_font=dict(size=20, color="#531F78"),
-
-        # 3. AXIS CLEANUP
+        # Darker gray for professionalism
+        title_font=dict(size=20, color="#2c3e50"),
         xaxis=dict(
-            range=[0, 105],  # Extra 5% breathing room for labels
+            range=[0, 105],
             showgrid=True,
-            gridcolor='rgba(200, 200, 200, 0.2)',  # Very faint grid
+            gridcolor='rgba(200, 200, 200, 0.2)',
             zeroline=False,
             ticksuffix="%"
         ),
-        yaxis=dict(
-            categoryorder='total ascending',
-            showgrid=False,
-            zeroline=False
-        ),
-
-        # 4. DIMENSIONS & MARGINS
+        yaxis=dict(showgrid=False, zeroline=False),
         height=500,
         margin=dict(l=20, r=40, t=80, b=40),
-        coloraxis_showscale=False,
-        showlegend=False
+        showlegend=False  # Hide legend since colors are self-explanatory
     )
 
     return fig
@@ -97,7 +93,7 @@ def display_source_details(df):
                 with col1:
                     st.write(
                         f"**Overall Insight:** This source has had **{row['total_inputs']}** claims analyzed.")
-                    if row['unreliability_pct'] >= 60:
+                    if row['unreliability_pct'] >= 50:
                         st.error(
                             "⚠️ **High Risk:** The vast majority of shared content is factually incorrect.")
                     elif row['unreliability_pct'] >= 30:

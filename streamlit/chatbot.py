@@ -88,6 +88,7 @@ def apply_syft_pro_theme():
                 '</style>', unsafe_allow_html=True)
 
 
+
 def display_claim_and_rating(claim: dict, box_design) -> None:
     """Display a claim and its rating"""
 
@@ -444,6 +445,21 @@ def render_results_screen(
         render_claims(claims_and_ratings)
 
 
+def render_claim_clusters(claims_and_evidence: list[dict]) -> None:
+    """Render the claim clusters to display claims grouped by similarity."""
+
+    st.subheader("Common Misinformation Themes")
+
+    if not claims_and_evidence:
+        return
+
+    cols = st.columns(len(claims_and_evidence))
+    for cluster, col in zip(claims_and_evidence, cols):
+        with col:
+            with st.expander(cluster['cluster_name']):
+                st.write(f"Description: {cluster['cluster_description']}")
+
+
 def main():
     apply_syft_pro_theme()
     col_logo, _ = st.columns([1, 10])
@@ -468,7 +484,23 @@ def main():
             # --- THE LARGE CENTER LOGO (Input Screen Only) ---
             _, center_logo, _ = st.columns([1, 1.2, 1])
             with center_logo:
-                st.image("logo_with_slogan.png", use_container_width=True)
+                st.image("logo.png", use_container_width=True)
+
+            st.markdown(
+                """
+                <div style="display: flex; justify-content: center; width: 100%; margin-top: -65px;">
+                    <div style="width: 420px; display: flex; justify-content: flex-end;">
+                        <p style="color: #666; font-size: 1.4rem; margin-right: -30px;">
+                            Beyond The Headlines
+                        </p>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            st.markdown("<div style='margin-bottom: 60px; margin-top: -25px;'></div>",
+                        unsafe_allow_html=True)
 
             # --- INPUT FORM ---
             user_input, input_format, source_type = render_and_parse_input_boxes()
@@ -479,6 +511,12 @@ def main():
                 st.session_state.results = verification_result
                 st.session_state.page = "Results"  # Switch state to trigger small logo
                 st.rerun()
+
+            # CLUSTERS
+
+            clusters = db.get_clusters()[:4]
+            if clusters:
+                render_claim_clusters(clusters)
         else:
             # --- RESULTS SCREEN ---
             summary, claims, metrics = st.session_state.results
