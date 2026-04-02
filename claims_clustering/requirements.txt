@@ -1,0 +1,8 @@
+pandas 
+umap-learn
+scikit-learn
+openai
+psycopg2-binary
+boto3
+pydantic
+python-dotenv

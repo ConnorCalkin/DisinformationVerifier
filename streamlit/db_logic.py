@@ -219,3 +219,20 @@ def get_source_ratings():
     results = run_query(query)
 
     return results
+
+
+def get_clusters() -> list[dict]:
+    """ Fetches the list of clusters from the database. """
+    query = """
+            SELECT 
+                cluster_id,
+                cluster_name,
+                cluster_description,
+                claim_count
+            FROM 
+                cluster
+            ORDER BY 
+                claim_count DESC
+            LIMIT 10;
+            """
+    return run_query(query)
