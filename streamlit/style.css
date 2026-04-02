@@ -53,6 +53,37 @@ div.stButton > button:hover {
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
+/* 1. Target the button container and the anchor itself */
+div[data-testid="stLinkButton"] a {
+    background-color: #531F78 !important; /* Your desired color */
+    border: none !important;
+    color: white !important;
+    padding: 0.5rem 1rem !important;
+    text-decoration: none !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* 2. CRITICAL: Override the internal Streamlit text color */
+div[data-testid="stLinkButton"] a p {
+    color: white !important;
+    margin: 0 !important;
+}
+
+/* 3. Add a hover state for a professional feel */
+div[data-testid="stLinkButton"] a:hover {
+    background-color: #3e175a !important; /* A slightly darker shade */
+    border-color: transparent !important;
+}
+
+/* 4. Remove the default red/blue border Streamlit adds on focus */
+div[data-testid="stLinkButton"] a:focus {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
 /* Clean up the Sidebar (Hide it since we have top nav) */
 [data-testid="stSidebar"] {
     display: none;
@@ -198,10 +229,3 @@ div[data-testid="stAlert"]:has(p:contains("Note:")) svg {
     fill: #531F78 !important;
     color: #531F78 !important;
 }
-
-[data-testid="stImage"] { 
-    padding-top: 0px !important; 
-    margin-top: -50px !important; 
-    margin-bottom: -30px !important; 
-    text-align: center; 
-} 
