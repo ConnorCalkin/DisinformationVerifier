@@ -1,0 +1,10 @@
+FROM public.ecr.aws/lambda/python:3.11
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY backend_lambda.py ${LAMBDA_TASK_ROOT}
+COPY classes.py ${LAMBDA_TASK_ROOT}
+COPY lambda_connection_utils.py ${LAMBDA_TASK_ROOT}
+
+CMD ["backend_lambda.lambda_handler"] 

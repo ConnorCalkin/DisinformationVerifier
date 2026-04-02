@@ -55,7 +55,8 @@ resource "aws_iam_policy" "ecs_task_lambda_invoke_policy" {
                     "lambda:InvokeFunctionUrl"
                 ],
                 Resource = [aws_lambda_function.rag_lambda.arn,
-                aws_lambda_function.wiki_ner_lambda.arn] 
+                aws_lambda_function.wiki_ner_lambda.arn,
+                aws_lambda_function.backend_lambda.arn] 
 
             }
         ]
@@ -142,6 +143,7 @@ resource "aws_ecs_task_definition" "dashboard_task" {
                 }
             ]
             environment = [
+                { name = "BACKEND_URL", value = aws_lambda_function_url.backend_endpoint.function_url },
                 { name = "RAG_URL", value = aws_lambda_function_url.rag_lambda_url.function_url },
                 { name = "WIKI_URL", value = aws_lambda_function_url.wiki_ner_lambda_url.function_url },
                 { name = "SCRAPE_URL", value = aws_lambda_function_url.scraper_url.function_url },
