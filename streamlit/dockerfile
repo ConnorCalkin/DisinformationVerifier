@@ -6,7 +6,6 @@ RUN pip install -r requirements.txt
 COPY chatbot.py .
 COPY db_logic.py .
 COPY history_dashboard.py .
-COPY streamlit_functions.py .
 COPY loading_animation.py .
 COPY about_us.py .
 COPY style.css .
