@@ -5,7 +5,7 @@ from openai import AsyncOpenAI  # Ensure you use the Async client
 # Assuming your connection module can provide an AsyncOpenAI client
 
 
-async def get_text_embedding(client: AsyncOpenAI, text: str):
+async def get_text_embedding(client: AsyncOpenAI, text: str) -> list[float]:
     """Asynchronous call to OpenAI."""
     try:
         response = await client.embeddings.create(
@@ -18,7 +18,7 @@ async def get_text_embedding(client: AsyncOpenAI, text: str):
         return None
 
 
-async def process_all_embeddings(claims: list[str]):
+async def process_all_embeddings(claims: list[str]) -> list[list[float]]:
     """Orchestrates the concurrent API calls."""
     client = AsyncOpenAI()  # Or get_async_openai_client()
     tasks = [get_text_embedding(client, text) for text in claims]

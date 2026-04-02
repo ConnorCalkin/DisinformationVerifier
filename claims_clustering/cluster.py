@@ -1,10 +1,11 @@
+import logging
+import asyncio
+import time
+
 import pandas as pd
 from sklearn.metrics import silhouette_score
 from dotenv import load_dotenv
 from pydantic import BaseModel
-import time
-import asyncio
-import logging
 import umap
 from sklearn.cluster import KMeans
 
@@ -144,19 +145,17 @@ async def cluster_claims(claims_df: pd.DataFrame) -> pd.DataFrame:
     their assigned cluster, and cluster names.
     '''
 
-    logger.info(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Embedding claims...")
+    logger.info("Embedding claims...")
     claims_df = await embed_claims_async(claims_df)
-    logger.info(
-        f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Reducing dimensionality...")
+    logger.info("Reducing dimensionality...")
     claims_df = reduce_dimensionality(claims_df)
     logger.info(
-        f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Determining optimal number of clusters and clustering claims...")
+        "Determining optimal number of clusters and clustering claims...")
     n_clusters = get_best_k_value(claims_df)
     logger.info(
-        f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Optimal number of clusters determined: {n_clusters}. Clustering claims...")
+        f"Optimal number of clusters determined: {n_clusters}. Clustering claims...")
     clustered_df = kmeans_clustering(claims_df, n_clusters=n_clusters)
-    logger.info(
-        f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Assigning cluster names and descriptions using LLM...")
+    logger.info("Assigning cluster names and descriptions using LLM...")
     client = get_openai_client()
     clustered_df = await assign_cluster_names(client, clustered_df)
     return clustered_df
@@ -194,16 +193,14 @@ def convert_claims_evidence_to_df(claims_evidence: list[tuple[str, str]]) -> pd.
 
 async def get_claims_clustered_with_evidence() -> list[dict]:
     '''Fetches claims and evidence from the database, clusters the claims, and returns a list of dictionaries with cluster names and descriptions.'''
-    logger.info(
-        f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Fetching claims and evidence from the database...")
+    logger.info("Fetching claims and evidence from the database...")
     claims_evidence = get_claims_and_evidence()
     logger.info(
-        f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Fetched {len(claims_evidence)} claims and evidence pairs.")
+        "Fetched %s claims and evidence pairs.", len(claims_evidence))
     claims_df = convert_claims_evidence_to_df(claims_evidence)
-    logger.info(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Clustering claims...")
+    logger.info("Clustering claims...")
     clustered_claims_df = await cluster_claims(claims_df)
-    logger.info(
-        f"{time.strftime('%Y-%m-%d %H:%M:%S')} - Clustering complete. Converting to list of dictionaries...")
+    logger.info("Clustering complete. Converting to list of dictionaries...")
     return convert_claims_to_cluster_dicts(clustered_claims_df)
 
 
