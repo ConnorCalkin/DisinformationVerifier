@@ -474,9 +474,10 @@ def main():
             st.session_state.page = "Input"  # Mark as landing page
 
             # --- THE LARGE CENTER LOGO (Input Screen Only) ---
-            _, center_logo, _ = st.columns([1, 1.2, 1])
+            _, center_logo, _ = st.columns([1, 3, 1])
+
             with center_logo:
-                st.image("logo_with_slogan.png", use_container_width=True)
+                st.image("test.png", use_container_width=True)
 
             # --- INPUT FORM ---
             user_input, input_format, source_type = render_and_parse_input_boxes()

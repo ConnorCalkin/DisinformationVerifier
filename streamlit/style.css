@@ -199,9 +199,10 @@ div[data-testid="stAlert"]:has(p:contains("Note:")) svg {
     color: #531F78 !important;
 }
 
-[data-testid="stImage"] { 
+/* [data-testid="center-logo"] { 
     padding-top: 0px !important; 
-    margin-top: -50px !important; 
-    margin-bottom: -30px !important; 
+    margin-top: -250px !important; 
+    margin-bottom: -250px !important; 
     text-align: center; 
-} 
+} */
+
