@@ -276,7 +276,7 @@ def get_claims_and_ratings_from_input(user_input: str, input_format: str, source
 
         db.archive_user_input(
             input_text=user_input,
-            input_summary=summary[:250],
+            input_summary=summary,
             source_type_name=source_type,
             supported=sup,
             contradicted=con,
