@@ -299,7 +299,7 @@ def rate_claims_via_llm(claims: list[Claim], wiki_context: list[dict], rag_conte
     prompt = create_llm_prompt(claims, wiki_context, rag_context)
 
     payload = {
-        "dv_role": CLAIM_EXTRACTION_DEVELOPER_ROLE,
+        "dv_role": CLAIM_RATING_DEVELOPER_ROLE,
         "prompt": prompt,
         "structured_output": "rated_claims",
         "success_message": "Successfully rated claims based on Wikipedia and RAG context."
