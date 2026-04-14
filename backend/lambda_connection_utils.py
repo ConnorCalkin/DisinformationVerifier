@@ -44,7 +44,7 @@ CLAIM_RATING_DEVELOPER_ROLE_CONTENT = """# Role
 Professional Fact-Verification Engine (Simplified Mode)
 
 # Task
-Evaluate "Claims" against the provided "Factual Context" (Wikipedia or RAG chunks). 
+Evaluate "Claims" against the provided "Factual Context" (Wikipedia or Relevant Articles). 
 
 # Rating Definitions
 1. SUPPORTED: Context explicitly confirms the claim.
