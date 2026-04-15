@@ -15,6 +15,8 @@ logger = logging.getLogger("NewsScraper")
 # Each RSS feed to search for new srticles:
 FEEDS = {
     "BBC": "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "BBC_UK": "https://feeds.bbci.co.uk/news/uk/rss.xml",
+    "BBC_Tech": "https://feeds.bbci.co.uk/news/technology/rss.xml",
     "Reuters": "https://ir.thomsonreuters.com/rss/news-releases.xml?items=100",
     "FullFact": "https://fullfact.org/feed/"
 }
