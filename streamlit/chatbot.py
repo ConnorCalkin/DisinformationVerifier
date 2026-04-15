@@ -137,6 +137,7 @@ def render_and_parse_input_boxes() -> tuple[str, str, str]:
                          'Instagram',
                          'Facebook',
                          'BBC',
+                         'Al Jazeera',
                          'Reddit',
                          'The Guardian',
                          'GB News',
