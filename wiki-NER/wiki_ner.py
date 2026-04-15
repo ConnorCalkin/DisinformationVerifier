@@ -7,14 +7,12 @@ import boto3
 import wikipedia
 import wikipediaapi
 from openai import OpenAI
-from dotenv import load_dotenv
 
 sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
 
 _CACHED_SECRET = None
 _OPENAI_CLIENT = None
 
-load_dotenv()
 def setup_logging():
     """ Configures logging for the Lambda function. Logs will be sent to CloudWatch. """
     logging.basicConfig(
