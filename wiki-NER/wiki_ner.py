@@ -7,13 +7,14 @@ import boto3
 import wikipedia
 import wikipediaapi
 from openai import OpenAI
+from dotenv import load_dotenv
 
 sm_client = boto3.client('secretsmanager', region_name='eu-west-2')
 
 _CACHED_SECRET = None
 _OPENAI_CLIENT = None
 
-
+load_dotenv()
 def setup_logging():
     """ Configures logging for the Lambda function. Logs will be sent to CloudWatch. """
     logging.basicConfig(
@@ -44,7 +45,7 @@ def get_secrets() -> dict:
 
 
 def get_openai_client() -> OpenAI:
-    """ Abstracted function to intialise and cache the OpenAI client. """
+    """ Abstracted function to initialise and cache the OpenAI client. """
     global _OPENAI_CLIENT
     if _OPENAI_CLIENT:
         return _OPENAI_CLIENT
@@ -68,7 +69,6 @@ def _call_llm_for_terms(openai_client: OpenAI, prompt: str) -> list[str]:
     """ Phase 1: API Interaction - Only for networking calls to the LLM. """
     response = openai_client.chat.completions.create(
         model="gpt-5-nano",
-        reasoning_effort="low",
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"}
     )
@@ -102,15 +102,24 @@ def extract_wiki_terms_from_claims(claims: list[str]) -> list[str]:
                 "NASA will lead the Artemis program",
                 "A total solar eclipse will occur in 2024"]
     Response 1: {
-        {"search_terms": ["NASA", "Artemis program", "2024 Solar Eclipse"]
-    }}
+        {"search_terms": ["Artemis program", "Astronauts", "Moon", "NASA", "2024 Solar Eclipse"]}       
+    }
 
     Example response 2:
-    Claims: ["Octopuses have three hearts",
-             "The Great Wall of China is visible from space",
-             "Sharks can smell blood from miles away"]
+    Claims: ["Octopuses have three hearts"]
     Response 2: {
-        {"search_terms": ["Octopus", "Hearts", "Great Wall of China", "Space", "Shark", "Smell", "Blood"]}}
+        {"search_terms": ["Octopus", "Hearts"]}}
+
+    Example response 3:
+    Claims: ["The Great Wall of China is visible from space"]
+    Response 3: {
+        {"search_terms": ["Great Wall of China", "Space"]}}
+
+    Example response 4:
+    Claims: ["Sharks can smell blood from miles away"]
+    Response 4: {
+        {"search_terms": ["Sharks", "Blood", "Smell"]}}
+
     """
     # Call OpenAI API with the prompt and return the list of article titles
     try:
@@ -254,3 +263,6 @@ def lambda_handler(event: dict, context: dict) -> dict:
             "statusCode": 500,
             "body": json.dumps({"error": "Internal research engine error."})
         }
+
+if __name__ == "__main__":
+    print(extract_wiki_terms_from_claims(["Octopuses have seven tentacles"]))
