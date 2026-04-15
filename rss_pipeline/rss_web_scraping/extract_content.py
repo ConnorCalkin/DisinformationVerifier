@@ -14,9 +14,13 @@ logger = logging.getLogger("NewsScraper")
 
 # Each RSS feed to search for new srticles:
 FEEDS = {
-    "BBC": "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "BBC_World": "https://feeds.bbci.co.uk/news/world/rss.xml",
     "BBC_UK": "https://feeds.bbci.co.uk/news/uk/rss.xml",
     "BBC_Tech": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+    "BBC_Business": "https://feeds.bbci.co.uk/news/business/rss.xml",
+    "BBC_Politics": "https://feeds.bbci.co.uk/news/politics/rss.xml",
+    "BBC_Health": "https://feeds.bbci.co.uk/news/health/rss.xml",
+    "BBC_Science": "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
     "Reuters": "https://ir.thomsonreuters.com/rss/news-releases.xml?items=100",
     "FullFact": "https://fullfact.org/feed/"
 }
@@ -196,3 +200,6 @@ def run():
     articles = get_recent_content(FEEDS, SCRAPE_FREQUENCY)
     logger.info(f"Scraped {len(articles)} new articles.")
     return articles
+
+
+run()
