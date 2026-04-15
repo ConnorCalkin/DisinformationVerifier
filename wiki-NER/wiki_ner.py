@@ -110,7 +110,7 @@ def extract_wiki_terms_from_claims(claims: list[str]) -> list[str]:
              "The Great Wall of China is visible from space",
              "Sharks can smell blood from miles away"]
     Response 2: {
-        {"search_terms": ["Octopus", "Hearts", "Great Wall of China", "Space", "Shark", "Smell"]}}
+        {"search_terms": ["Octopus", "Hearts", "Great Wall of China", "Space", "Shark", "Smell", "Blood"]}}
     """
     # Call OpenAI API with the prompt and return the list of article titles
     try:
