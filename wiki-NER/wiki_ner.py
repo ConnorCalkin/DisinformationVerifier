@@ -264,5 +264,3 @@ def lambda_handler(event: dict, context: dict) -> dict:
             "body": json.dumps({"error": "Internal research engine error."})
         }
 
-if __name__ == "__main__":
-    print(extract_wiki_terms_from_claims(["Octopuses have seven tentacles"]))
