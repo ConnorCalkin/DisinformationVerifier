@@ -97,8 +97,13 @@ def extract_wiki_terms_from_claims(claims: list[str]) -> list[str]:
     Claims: {claims}
 
     Return ONLY a JSON object with the key 'search_terms'.
-    Example: {
-        {"search_terms": ["NASA", "Artemis program", "2024 Solar Eclipse"]}}
+    Example response:
+    Claims: ["The Artemis program will land astronauts on the Moon by 2024",
+                "NASA will lead the Artemis program",
+                "A total solar eclipse will occur in 2024"]
+    Response: {
+        "search_terms": ["NASA", "Artemis program", "2024 Solar Eclipse"]
+    }
     """
     # Call OpenAI API with the prompt and return the list of article titles
     try:
